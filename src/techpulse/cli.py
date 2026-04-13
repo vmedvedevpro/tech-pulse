@@ -1,19 +1,32 @@
+import argparse
+
 from rich.align import Align
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 
+from youtube_transcript_api import YouTubeTranscriptApi
+
 from techpulse.agent.core.agent import Agent
 from techpulse.agent.core.tool_registry import ToolRegistry
+from techpulse.agent.tools.youtube_transcript_tools import ListTranscriptsTool, YoutubeTranscriptTool
+from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 
 console = Console()
 
 
 def main() -> None:
-    registry = ToolRegistry()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show tool calls and results")
+    args = parser.parse_args()
 
-    agent = Agent(registry)
+    registry = ToolRegistry()
+    yt_client = YouTubeTranscriptClient(YouTubeTranscriptApi())
+    registry.register(ListTranscriptsTool(yt_client))
+    registry.register(YoutubeTranscriptTool(yt_client))
+
+    agent = Agent(registry, verbose=args.verbose)
 
 
     console.print(Panel(Align.center("\n[bold green]TechPulse Agent[/bold green]\n"), subtitle="type q to quit"))
