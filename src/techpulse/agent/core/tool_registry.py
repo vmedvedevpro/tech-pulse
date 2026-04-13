@@ -21,6 +21,7 @@ class ToolRegistry:
                 "name": tool.name,
                 "description": tool.description,
                 "input_schema": tool.input_schema,
+                "strict": True,
             }
             for tool in self._tools.values()
         ]

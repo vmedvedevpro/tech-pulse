@@ -8,11 +8,12 @@ from techpulse.config import settings
 
 
 class Agent:
-    def __init__(self, registry: ToolRegistry, verbose: bool = False):
+    def __init__(self, registry: ToolRegistry, verbose: bool = False, system: str | None = None):
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self._registry = registry
         self._messages: list[dict] = []
         self._verbose = verbose
+        self._system = system
         self._console = Console(stderr=True) if verbose else None
 
     def _log(self, *args, **kwargs) -> None:
@@ -24,12 +25,16 @@ class Agent:
         self._messages.append({"role": "user", "content": user_message})
 
         while True:
-            response: anthropic.types.Message = self._client.messages.create(
+            create_kwargs = dict(
                 model=settings.anthropic_model,
                 max_tokens=1024,
                 tools=self._registry.get_schemas(),
-                messages=self._messages
+                messages=self._messages,
             )
+            if self._system:
+                create_kwargs["system"] = self._system
+
+            response: anthropic.types.Message = self._client.messages.create(**create_kwargs)
 
             self._log(f"[dim]stop_reason: {response.stop_reason}[/dim]")
 

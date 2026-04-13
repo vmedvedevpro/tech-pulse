@@ -2,10 +2,39 @@ import json
 from typing import Any
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.pipeline.integrations.youtube.youtube_api_client import (
-    TranscriptError,
-    YouTubeTranscriptClient,
-)
+from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
+from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
+
+_VIDEO_ID_PARAM = {
+    "type": "string",
+    "description": "YouTube video ID (e.g. 'dQw4w9WgXcQ', not the full URL).",
+}
+
+
+class FetchVideoMetadataTool(Tool):
+    name = "fetch_video_metadata"
+    description = (
+        "Fetches basic metadata for a YouTube video: title and channel name. "
+        "Call this first to get the video title before analyzing the transcript."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {"video_id": _VIDEO_ID_PARAM},
+        "required": ["video_id"],
+        "additionalProperties": False,
+    }
+
+    def __init__(self, client: YouTubeTranscriptClient) -> None:
+        self._client = client
+
+    def run(self, tool_input: dict[str, Any]) -> ToolResult:
+        video_id: str = tool_input["video_id"]
+        try:
+            meta = self._client.fetch_video_metadata(video_id)
+        except TranscriptError as exc:
+            return ToolResult(content=str(exc), is_error=True)
+        payload = {"video_id": meta.video_id, "title": meta.title, "channel": meta.channel}
+        return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
 
 class ListTranscriptsTool(Tool):
@@ -18,13 +47,9 @@ class ListTranscriptsTool(Tool):
     )
     input_schema = {
         "type": "object",
-        "properties": {
-            "video_id": {
-                "type": "string",
-                "description": "YouTube video ID (e.g. 'dQw4w9WgXcQ', not the full URL).",
-            },
-        },
+        "properties": {"video_id": _VIDEO_ID_PARAM},
         "required": ["video_id"],
+        "additionalProperties": False,
     }
 
     def __init__(self, client: YouTubeTranscriptClient) -> None:
@@ -62,10 +87,7 @@ class YoutubeTranscriptTool(Tool):
     input_schema = {
         "type": "object",
         "properties": {
-            "video_id": {
-                "type": "string",
-                "description": "YouTube video ID (e.g. 'dQw4w9WgXcQ', not the full URL).",
-            },
+            "video_id": _VIDEO_ID_PARAM,
             "language_code": {
                 "type": "string",
                 "description": (
@@ -75,6 +97,7 @@ class YoutubeTranscriptTool(Tool):
             },
         },
         "required": ["video_id", "language_code"],
+        "additionalProperties": False,
     }
 
     def __init__(self, client: YouTubeTranscriptClient) -> None:

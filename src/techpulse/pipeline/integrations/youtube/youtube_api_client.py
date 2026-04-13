@@ -1,24 +1,29 @@
-from dataclasses import dataclass
+import json
+import urllib.request
 
-from youtube_transcript_api import (
-    YouTubeTranscriptApi,
-)
+from youtube_transcript_api import YouTubeTranscriptApi
 
+from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
+from techpulse.pipeline.integrations.youtube.models import Transcript, VideoMetadata
 
-@dataclass
-class Transcript:
-    video_id: str
-    text: str
-    language_code: str
-    duration: float  # total seconds
-
-
-class TranscriptError(Exception):
-    pass
 
 class YouTubeTranscriptClient:
-    def __init__(self, api: YouTubeTranscriptApi) -> None:
+    def __init__(self, api: YouTubeTranscriptApi, urlopen=urllib.request.urlopen) -> None:
         self._api = api
+        self._urlopen = urlopen
+
+    def fetch_video_metadata(self, video_id: str) -> VideoMetadata:
+        url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        try:
+            with self._urlopen(url) as response:
+                data = json.loads(response.read())
+        except Exception as exc:
+            raise TranscriptError(f"Failed to fetch metadata for {video_id!r}: {exc}") from exc
+        return VideoMetadata(
+            video_id=video_id,
+            title=data["title"],
+            channel=data["author_name"],
+        )
 
     def get_transcript_metadata(self, video_id: str):
         try:
