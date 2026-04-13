@@ -1,5 +1,8 @@
-# tech-pulse
-
+# Tech Pulse
+![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python)
+![License](https://img.shields.io/github/license/vmedvedevpro/tech-pulse)
+![Last commit](https://img.shields.io/github/last-commit/vmedvedevpro/tech-pulse)
+![Claude](https://img.shields.io/badge/powered%20by-Claude-orange?logo=anthropic)
 ![CI](https://github.com/vmedvedevpro/tech-pulse/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/vmedvedevpro/tech-pulse/branch/main/graph/badge.svg)](https://codecov.io/gh/vmedvedevpro/tech-pulse)
 
