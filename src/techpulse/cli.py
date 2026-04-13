@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 
 from rich.console import Console
 from rich.panel import Panel
@@ -35,24 +36,27 @@ def render_summary(summary: ContentSummary) -> None:
     console.print(Panel(table, title="[bold green]ContentSummary[/bold green]", border_style="green"))
 
 
+async def _run(args) -> None:
+    agent, submit_tool = create_agent(verbose=args.verbose)
+    await agent.chat(args.link)
+
+    if submit_tool.last_result is not None:
+        render_summary(submit_tool.last_result)
+    else:
+        console.print("[yellow]Agent did not submit a summary.[/yellow]")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="store_true", help="Show tool calls and results")
     parser.add_argument("-l", "--link", help="YouTube video link or ID to analyze", type=str, required=True)
     args = parser.parse_args()
 
-    agent, submit_tool = create_agent(verbose=args.verbose)
-
     try:
-        agent.chat(args.link)
+        asyncio.run(_run(args))
     except Exception as exc:
         console.print(f"[bold red]Error:[/bold red] {exc}")
         raise SystemExit(1)
-
-    if submit_tool.last_result is not None:
-        render_summary(submit_tool.last_result)
-    else:
-        console.print("[yellow]Agent did not submit a summary.[/yellow]")
 
 
 if __name__ == "__main__":

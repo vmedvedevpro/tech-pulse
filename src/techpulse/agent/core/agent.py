@@ -9,7 +9,7 @@ from techpulse.config import settings
 
 class Agent:
     def __init__(self, registry: ToolRegistry, verbose: bool = False, system: str | None = None):
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._registry = registry
         self._messages: list[dict] = []
         self._verbose = verbose
@@ -20,8 +20,7 @@ class Agent:
         if self._console:
             self._console.print(*args, **kwargs)
 
-    # noinspection PyTypeChecker
-    def chat(self, user_message: str) -> str:
+    async def chat(self, user_message: str) -> str:
         self._messages.append({"role": "user", "content": user_message})
 
         while True:
@@ -34,7 +33,7 @@ class Agent:
             if self._system:
                 create_kwargs["system"] = self._system
 
-            response: anthropic.types.Message = self._client.messages.create(**create_kwargs)
+            response: anthropic.types.Message = await self._client.messages.create(**create_kwargs)
 
             self._log(f"[dim]stop_reason: {response.stop_reason}[/dim]")
 
@@ -54,7 +53,7 @@ class Agent:
                             f"[bold yellow]tool_use[/bold yellow] [cyan]{block.name}[/cyan] "
                             f"{json.dumps(block.input, ensure_ascii=False)}"
                         )
-                        result = self._registry.run(block.name, block.input)
+                        result = await self._registry.run(block.name, block.input)
                         status = "[red]error[/red]" if result.is_error else "[green]ok[/green]"
                         self._log(f"[bold yellow]tool_result[/bold yellow] {status} {result.content[:200]}")
                         tool_results.append({

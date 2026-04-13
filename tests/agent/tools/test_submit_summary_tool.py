@@ -17,23 +17,25 @@ _VALID_INPUT = {
 
 
 class TestSubmitSummaryTool:
-    def test_run_returns_success_result_when_input_is_valid(self):
+    @pytest.mark.asyncio
+    async def test_run_returns_success_result_when_input_is_valid(self):
         # Arrange
         tool = SubmitSummaryTool()
 
         # Act
-        result = tool.run(_VALID_INPUT)
+        result = await tool.run(_VALID_INPUT)
 
         # Assert
         assert not result.is_error
         assert result.content == "Summary captured."
 
-    def test_run_stores_content_summary_when_called(self):
+    @pytest.mark.asyncio
+    async def test_run_stores_content_summary_when_called(self):
         # Arrange
         tool = SubmitSummaryTool()
 
         # Act
-        tool.run(_VALID_INPUT)
+        await tool.run(_VALID_INPUT)
 
         # Assert
         assert isinstance(tool.last_result, ContentSummary)
@@ -50,24 +52,26 @@ class TestSubmitSummaryTool:
         # Assert
         assert tool.last_result is None
 
-    def test_run_overwrites_last_result_when_called_twice(self):
+    @pytest.mark.asyncio
+    async def test_run_overwrites_last_result_when_called_twice(self):
         # Arrange
         tool = SubmitSummaryTool()
-        tool.run(_VALID_INPUT)
+        await tool.run(_VALID_INPUT)
         second_input = {**_VALID_INPUT, "source_id": "zzz999", "title": "Another Video"}
 
         # Act
-        tool.run(second_input)
+        await tool.run(second_input)
 
         # Assert
         assert tool.last_result.source_id == "zzz999"
         assert tool.last_result.title == "Another Video"
 
-    def test_run_raises_when_relevance_score_exceeds_maximum(self):
+    @pytest.mark.asyncio
+    async def test_run_raises_when_relevance_score_exceeds_maximum(self):
         # Arrange
         tool = SubmitSummaryTool()
         bad_input = {**_VALID_INPUT, "relevance_score": 11}
 
         # Act / Assert
         with pytest.raises(Exception):
-            tool.run(bad_input)
+            await tool.run(bad_input)

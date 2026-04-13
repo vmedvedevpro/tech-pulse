@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -27,10 +28,10 @@ class FetchVideoMetadataTool(Tool):
     def __init__(self, client: YouTubeTranscriptClient) -> None:
         self._client = client
 
-    def run(self, tool_input: dict[str, Any]) -> ToolResult:
+    async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
         try:
-            meta = self._client.fetch_video_metadata(video_id)
+            meta = await asyncio.to_thread(self._client.fetch_video_metadata, video_id)
         except TranscriptError as exc:
             return ToolResult(content=str(exc), is_error=True)
         payload = {"video_id": meta.video_id, "title": meta.title, "channel": meta.channel}
@@ -55,11 +56,11 @@ class ListTranscriptsTool(Tool):
     def __init__(self, client: YouTubeTranscriptClient) -> None:
         self._client = client
 
-    def run(self, tool_input: dict[str, Any]) -> ToolResult:
+    async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
 
         try:
-            transcript_list = self._client.get_transcript_metadata(video_id)
+            transcript_list = await asyncio.to_thread(self._client.get_transcript_metadata, video_id)
         except TranscriptError as exc:
             return ToolResult(content=str(exc), is_error=True)
 
@@ -103,12 +104,12 @@ class YoutubeTranscriptTool(Tool):
     def __init__(self, client: YouTubeTranscriptClient) -> None:
         self._client = client
 
-    def run(self, tool_input: dict[str, Any]) -> ToolResult:
+    async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
         language_code: str = tool_input["language_code"]
 
         try:
-            transcript = self._client.fetch(video_id, language=language_code)
+            transcript = await asyncio.to_thread(self._client.fetch, video_id, language=language_code)
         except TranscriptError as exc:
             return ToolResult(content=str(exc), is_error=True)
 

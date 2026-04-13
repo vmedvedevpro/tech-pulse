@@ -50,6 +50,6 @@ class SubmitSummaryTool(Tool):
     def __init__(self) -> None:
         self.last_result: ContentSummary | None = None
 
-    def run(self, tool_input: dict[str, Any]) -> ToolResult:
+    async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         self.last_result = ContentSummary(**tool_input)
         return ToolResult(content="Summary captured.")
