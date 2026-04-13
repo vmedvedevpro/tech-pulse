@@ -1,11 +1,13 @@
 import argparse
 import asyncio
 
+from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from techpulse.bootstrap import create_agent
+from techpulse.logging import setup_logging
 from techpulse.pipeline.models import ContentSummary
 
 console = Console()
@@ -37,7 +39,7 @@ def render_summary(summary: ContentSummary) -> None:
 
 
 async def _run(args) -> None:
-    agent, submit_tool = create_agent(verbose=args.verbose)
+    agent, submit_tool = create_agent()
     await agent.chat(args.link)
 
     if submit_tool.last_result is not None:
@@ -48,13 +50,16 @@ async def _run(args) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbose", action="store_true", help="Show tool calls and results")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show debug logs (tool calls, stop reasons)")
     parser.add_argument("-l", "--link", help="YouTube video link or ID to analyze", type=str, required=True)
     args = parser.parse_args()
+
+    setup_logging("DEBUG" if args.verbose else "INFO")
 
     try:
         asyncio.run(_run(args))
     except Exception as exc:
+        logger.error("fatal: {}", exc)
         console.print(f"[bold red]Error:[/bold red] {exc}")
         raise SystemExit(1)
 

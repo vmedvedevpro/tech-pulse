@@ -2,6 +2,8 @@ import asyncio
 import json
 from typing import Any
 
+from loguru import logger
+
 from techpulse.agent.tools.base import Tool, ToolResult
 from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
 from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
@@ -30,10 +32,14 @@ class FetchVideoMetadataTool(Tool):
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
+        log = logger.bind(video_id=video_id)
+        log.debug("fetch_video_metadata | fetching")
         try:
             meta = await asyncio.to_thread(self._client.fetch_video_metadata, video_id)
         except TranscriptError as exc:
+            log.warning("fetch_video_metadata | error | {}", exc)
             return ToolResult(content=str(exc), is_error=True)
+        log.debug("fetch_video_metadata | title={!r} channel={!r}", meta.title, meta.channel)
         payload = {"video_id": meta.video_id, "title": meta.title, "channel": meta.channel}
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
@@ -58,10 +64,13 @@ class ListTranscriptsTool(Tool):
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
+        log = logger.bind(video_id=video_id)
+        log.debug("list_transcripts | fetching")
 
         try:
             transcript_list = await asyncio.to_thread(self._client.get_transcript_metadata, video_id)
         except TranscriptError as exc:
+            log.warning("list_transcripts | error | {}", exc)
             return ToolResult(content=str(exc), is_error=True)
 
         transcripts = [
@@ -73,6 +82,7 @@ class ListTranscriptsTool(Tool):
             for t in transcript_list
         ]
 
+        log.debug("list_transcripts | found {} transcript(s)", len(transcripts))
         payload = {"video_id": video_id, "transcripts": transcripts}
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
@@ -107,12 +117,20 @@ class YoutubeTranscriptTool(Tool):
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
         language_code: str = tool_input["language_code"]
+        log = logger.bind(video_id=video_id, language=language_code)
+        log.debug("fetch_transcript | fetching")
 
         try:
             transcript = await asyncio.to_thread(self._client.fetch, video_id, language=language_code)
         except TranscriptError as exc:
+            log.warning("fetch_transcript | error | {}", exc)
             return ToolResult(content=str(exc), is_error=True)
 
+        log.debug(
+            "fetch_transcript | ok | duration={}s text_len={}",
+            round(transcript.duration),
+            len(transcript.text),
+        )
         payload = {
             "video_id": transcript.video_id,
             "language_code": transcript.language_code,

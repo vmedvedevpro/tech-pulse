@@ -12,7 +12,7 @@ from techpulse.agent.tools.youtube_transcript_tools import (
 from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 
 
-def create_agent(verbose: bool = False) -> tuple[Agent, SubmitSummaryTool]:
+def create_agent() -> tuple[Agent, SubmitSummaryTool]:
     registry = ToolRegistry()
     yt_client = YouTubeTranscriptClient(YouTubeTranscriptApi())
     registry.register(FetchVideoMetadataTool(yt_client))
@@ -21,5 +21,5 @@ def create_agent(verbose: bool = False) -> tuple[Agent, SubmitSummaryTool]:
     submit_tool = SubmitSummaryTool()
     registry.register(submit_tool)
 
-    agent = Agent(registry, verbose=verbose, system=SYSTEM_PROMPT)
+    agent = Agent(registry, system=SYSTEM_PROMPT)
     return agent, submit_tool

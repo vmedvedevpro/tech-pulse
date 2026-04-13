@@ -1,5 +1,7 @@
 from typing import Any
 
+from loguru import logger
+
 from techpulse.agent.tools.base import Tool, ToolResult
 from techpulse.pipeline.models import ContentSummary
 
@@ -52,4 +54,10 @@ class SubmitSummaryTool(Tool):
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         self.last_result = ContentSummary(**tool_input)
+        logger.info(
+            "submit_summary | source_id={} title={!r} relevance={}/10",
+            self.last_result.source_id,
+            self.last_result.title,
+            self.last_result.relevance_score,
+        )
         return ToolResult(content="Summary captured.")
