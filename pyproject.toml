@@ -29,4 +29,5 @@ dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=0.24.0",
     "coverage>=7.13.5",
+    "pytest-cov>=4.1.0",
 ]

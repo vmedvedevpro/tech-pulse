@@ -1,5 +1,8 @@
 # tech-pulse
 
+![CI](https://github.com/vmedvedevpro/tech-pulse/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/vmedvedevpro/tech-pulse/branch/main/graph/badge.svg)](https://codecov.io/gh/vmedvedevpro/tech-pulse)
+
 Self-hosted tech digest pipeline. YouTube, RSS & GitHub curated by Claude, delivered to Telegram.
 
 TechPulse analyzes YouTube videos using Claude: fetches the transcript, scores relevance for engineers, and produces a
