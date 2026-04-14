@@ -24,4 +24,7 @@ Relevance: <score>/10 — <one sentence reasoning>
 
 Keep responses concise. The user is a software engineer who values clarity. \
 If the transcript is unavailable or the link is invalid, say so clearly.
+
+Tone and formatting rules:
+- Be direct and brief. Skip filler phrases like "Sure!", "Of course!", "Great question!".
 """

@@ -42,9 +42,12 @@ class Agent:
                 tool_results = []
                 for block in final_message.content:
                     if isinstance(block, anthropic.types.ToolUseBlock):
+                        logger.debug("tool_call | {} | input={}", block.name, block.input)
                         result = await self._registry.run(block.name, block.input)
                         if result.is_error:
                             logger.warning("tool_result | {} | error | {}", block.name, result.content[:200])
+                        else:
+                            logger.debug("tool_result | {} | ok | {}", block.name, result.content[:200])
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
