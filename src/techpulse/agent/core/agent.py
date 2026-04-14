@@ -1,67 +1,86 @@
-import json
+import asyncio
+from collections.abc import AsyncIterator
 
 import anthropic
-from rich.console import Console
+from loguru import logger
 
+from techpulse.agent.core.events import AgentEvent, TextDelta
 from techpulse.agent.core.tool_registry import ToolRegistry
 from techpulse.config import settings
 
+_MAX_RETRIES = 4
+_RETRY_BASE_DELAY = 5.0  # seconds; multiplied by attempt number
+
 
 class Agent:
-    def __init__(self, registry: ToolRegistry, verbose: bool = False, system: str | None = None):
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    def __init__(self, registry: ToolRegistry, system: str | None = None):
+        self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._registry = registry
         self._messages: list[dict] = []
-        self._verbose = verbose
         self._system = system
-        self._console = Console(stderr=True) if verbose else None
 
-    def _log(self, *args, **kwargs) -> None:
-        if self._console:
-            self._console.print(*args, **kwargs)
-
-    # noinspection PyTypeChecker
-    def chat(self, user_message: str) -> str:
+    async def stream_chat(self, user_message: str) -> AsyncIterator[AgentEvent]:
         self._messages.append({"role": "user", "content": user_message})
 
         while True:
-            create_kwargs = dict(
-                model=settings.anthropic_model,
-                max_tokens=1024,
-                tools=self._registry.get_schemas(),
-                messages=self._messages,
-            )
-            if self._system:
-                create_kwargs["system"] = self._system
+            final_message: anthropic.types.Message | None = None
 
-            response: anthropic.types.Message = self._client.messages.create(**create_kwargs)
+            for attempt in range(_MAX_RETRIES):
+                try:
+                    async with self._open_stream() as stream:
+                        async for delta in stream.text_stream:
+                            yield TextDelta(delta)
+                        final_message = await stream.get_final_message()
+                    break
+                except anthropic.APIStatusError as exc:
+                    if exc.status_code != 529 or attempt == _MAX_RETRIES - 1:
+                        raise
+                    delay = _RETRY_BASE_DELAY * (attempt + 1)
+                    logger.warning(
+                        "anthropic overloaded | attempt={}/{} | retrying in {}s",
+                        attempt + 1, _MAX_RETRIES, delay,
+                    )
+                    await asyncio.sleep(delay)
 
-            self._log(f"[dim]stop_reason: {response.stop_reason}[/dim]")
+            assert final_message is not None
+            self._messages.append({"role": "assistant", "content": final_message.content})
 
-            if response.stop_reason == "end_turn":
-                # noinspection PyUnresolvedReferences
-                answer = response.content[0].text
-                self._messages.append({"role": "assistant", "content": answer})
-                return answer
+            if final_message.stop_reason == "end_turn":
+                logger.info("finished | output_tokens={}", final_message.usage.output_tokens)
+                return
 
-            if response.stop_reason == "tool_use":
-                self._messages.append({"role": "assistant", "content": response.content})
-                tool_results = []
+            if final_message.stop_reason == "tool_use":
+                tool_results: list[dict] = []
+                tool_blocks = [b for b in final_message.content if isinstance(b, anthropic.types.ToolUseBlock)]
 
-                for block in response.content:
-                    if isinstance(block, anthropic.types.ToolUseBlock):
-                        self._log(
-                            f"[bold yellow]tool_use[/bold yellow] [cyan]{block.name}[/cyan] "
-                            f"{json.dumps(block.input, ensure_ascii=False)}"
-                        )
-                        result = self._registry.run(block.name, block.input)
-                        status = "[red]error[/red]" if result.is_error else "[green]ok[/green]"
-                        self._log(f"[bold yellow]tool_result[/bold yellow] {status} {result.content[:200]}")
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result.content,
-                            "is_error": result.is_error,
-                        })
+                for block in tool_blocks:
+                    logger.debug("tool_call {} input={}", block.name, block.input)
 
+                if len(tool_blocks) > 1:
+                    logger.warning("multiple tool_calls in a single message")
+
+                results = await asyncio.gather(*(self._registry.run(block.name, block.input) for block in tool_blocks))
+
+                for block, result in zip(tool_blocks, results):
+                    if result.is_error:
+                        logger.warning("tool_result {} error | {}", block.name, result.content[:200])
+                    else:
+                        logger.debug("tool_result {} ok | {}", block.name, result.content[:200])
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result.content,
+                        "is_error": result.is_error,
+                    })
                 self._messages.append({"role": "user", "content": tool_results})
+
+    def _open_stream(self):
+        kwargs = dict(
+            model=settings.anthropic_model,
+            max_tokens=2048,
+            tools=self._registry.get_schemas(),
+            messages=self._messages,
+        )
+        if self._system:
+            kwargs["system"] = self._system
+        return self._client.messages.stream(**kwargs)

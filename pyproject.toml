@@ -3,15 +3,17 @@ name = "tech-pulse"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.49.0",
+    "anthropic>=0.94.1",
     "pydantic>=2.13.0",
     "pydantic-settings>=2.0.0",
-    "rich>=13.0.0",
     "youtube-transcript-api>=0.6.0",
+    "python-telegram-bot>=21.0",
+    "loguru>=0.7.0",
+    "redis>=5.0.0",
 ]
 
 [project.scripts]
-techpulse = "techpulse.cli:main"
+techpulse = "techpulse.bot.bot:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -30,4 +32,5 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "coverage>=7.13.5",
     "pytest-cov>=4.1.0",
+    "fakeredis>=2.0.0",
 ]
