@@ -8,10 +8,13 @@ from techpulse.integrations.youtube.exceptions import TranscriptError
 from techpulse.integrations.youtube.models import Transcript, VideoMetadata
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 
+_OEMBED_URL = "https://www.youtube.com/oembed"
+
 
 def _make_client(api=None, urlopen=None):
     return YouTubeTranscriptClient(
         api=api or MagicMock(),
+        oembed_url=_OEMBED_URL,
         urlopen=urlopen or MagicMock(),
     )
 
