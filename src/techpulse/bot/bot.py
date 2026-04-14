@@ -4,11 +4,12 @@ from contextlib import suppress
 
 from loguru import logger
 from telegram import Update
+from telegram.constants import ChatAction
 from telegram.error import TelegramError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from techpulse.agent.core.agent import Agent
-from techpulse.agent.core.events import TextDelta, ToolUseCompleted, ToolUseStarted
+from techpulse.agent.core.events import TextDelta
 from techpulse.bootstrap import create_agent
 from techpulse.config import settings
 from techpulse.logging import setup_logging
@@ -54,16 +55,17 @@ class BotApp:
             bot = update.get_bot()
             draft_id = int(time.time() * 1000) & 0x7FFFFFFF or 1
 
+            async def keep_typing() -> None:
+                with suppress(TelegramError, asyncio.CancelledError):
+                    while True:
+                        await bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+                        await asyncio.sleep(4.0)
+
+            typing_task = asyncio.create_task(keep_typing())
+
             buffer = ""
-            active_tool: str | None = None
             last_pushed = ""
             last_push_at = 0.0
-
-            def render() -> str:
-                if active_tool:
-                    suffix = f"\n\n🔧 <i>{active_tool}…</i>"
-                    return (buffer + suffix).lstrip()
-                return buffer
 
             async def push_draft(draft_text: str) -> None:
                 with suppress(TelegramError):
@@ -76,22 +78,16 @@ class BotApp:
 
             try:
                 async for event in agent.stream_chat(text):
-                    match event:
-                        case TextDelta(delta):
-                            buffer += delta
-                        case ToolUseStarted(tool_name):
-                            active_tool = tool_name
-                        case ToolUseCompleted():
-                            active_tool = None
+                    if not isinstance(event, TextDelta):
+                        continue
+                    buffer += event.text
 
-                    view = render()
                     now = asyncio.get_running_loop().time()
-                    force = isinstance(event, (ToolUseStarted, ToolUseCompleted))
-                    if view.strip() and view != last_pushed and (
-                            force or now - last_push_at >= _DRAFT_INTERVAL
+                    if buffer.strip() and buffer != last_pushed and (
+                            now - last_push_at >= _DRAFT_INTERVAL
                     ):
-                        await push_draft(view)
-                        last_pushed = view
+                        await push_draft(buffer)
+                        last_pushed = buffer
                         last_push_at = now
 
                 final = buffer.strip() or "(no response)"
@@ -102,6 +98,8 @@ class BotApp:
                 await update.effective_message.reply_text(
                     "An error occurred while processing your message."
                 )
+            finally:
+                typing_task.cancel()
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:

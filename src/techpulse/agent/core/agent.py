@@ -4,12 +4,7 @@ from collections.abc import AsyncIterator
 import anthropic
 from loguru import logger
 
-from techpulse.agent.core.events import (
-    AgentEvent,
-    TextDelta,
-    ToolUseCompleted,
-    ToolUseStarted,
-)
+from techpulse.agent.core.events import AgentEvent, TextDelta
 from techpulse.agent.core.tool_registry import ToolRegistry
 from techpulse.config import settings
 
@@ -28,7 +23,8 @@ class Agent:
         self._messages.append({"role": "user", "content": user_message})
 
         while True:
-            final_message = None
+            final_message: anthropic.types.Message | None = None
+
             for attempt in range(_MAX_RETRIES):
                 try:
                     async with self._open_stream() as stream:
@@ -55,13 +51,17 @@ class Agent:
 
             if final_message.stop_reason == "tool_use":
                 tool_results: list[dict] = []
-                for block in final_message.content:
-                    if not isinstance(block, anthropic.types.ToolUseBlock):
-                        continue
+                tool_blocks = [b for b in final_message.content if isinstance(b, anthropic.types.ToolUseBlock)]
+
+                for block in tool_blocks:
                     logger.debug("tool_call {} input={}", block.name, block.input)
-                    yield ToolUseStarted(block.name)
-                    result = await self._registry.run(block.name, block.input)
-                    yield ToolUseCompleted(block.name, ok=not result.is_error)
+
+                if len(tool_blocks) > 1:
+                    logger.warning("multiple tool_calls in a single message")
+
+                results = await asyncio.gather(*(self._registry.run(block.name, block.input) for block in tool_blocks))
+
+                for block, result in zip(tool_blocks, results):
                     if result.is_error:
                         logger.warning("tool_result {} error | {}", block.name, result.content[:200])
                     else:

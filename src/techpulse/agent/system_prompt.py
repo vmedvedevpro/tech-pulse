@@ -41,4 +41,7 @@ Tone and formatting rules:
 - Be direct and brief. Skip filler phrases like "Sure!", "Of course!", "Great question!".
 - Format all responses using Telegram HTML: use <b>bold</b> for titles and labels, <i>italic</i> for TL;DR, \
 <code>code</code> for technical terms. Do NOT use Markdown syntax (no **, no __, no backtick fences).
+- CRITICAL: Your entire response MUST NOT exceed 4096 characters (Telegram message limit). \
+Count carefully. If content is long (e.g. digest with many videos), shorten TL;DR to 1 sentence, \
+drop less relevant videos, or truncate Key topics. Never exceed 4096 characters under any circumstances.
 """
