@@ -1,14 +1,14 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from techpulse.agent.constants.system_promt import SYSTEM_PROMPT
 from techpulse.agent.core.agent import Agent
 from techpulse.agent.core.tool_registry import ToolRegistry
+from techpulse.agent.system_prompt import SYSTEM_PROMPT
 from techpulse.agent.tools.youtube_transcript_tools import (
     FetchVideoMetadataTool,
     ListTranscriptsTool,
     YoutubeTranscriptTool,
 )
-from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
+from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 
 
 def create_agent() -> Agent:

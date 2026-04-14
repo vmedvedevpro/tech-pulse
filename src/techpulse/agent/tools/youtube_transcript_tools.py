@@ -5,8 +5,8 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
-from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
+from techpulse.integrations.youtube.exceptions import TranscriptError
+from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 
 _VIDEO_ID_PARAM = {
     "type": "string",

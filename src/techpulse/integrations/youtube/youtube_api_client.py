@@ -3,8 +3,8 @@ import urllib.request
 
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
-from techpulse.pipeline.integrations.youtube.models import Transcript, VideoMetadata
+from techpulse.integrations.youtube.exceptions import TranscriptError
+from techpulse.integrations.youtube.models import Transcript, VideoMetadata
 
 
 class YouTubeTranscriptClient:

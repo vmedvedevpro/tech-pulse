@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from techpulse.agent.tools.youtube_transcript_tools import YoutubeTranscriptTool
-from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
-from techpulse.pipeline.integrations.youtube.models import Transcript
+from techpulse.integrations.youtube.exceptions import TranscriptError
+from techpulse.integrations.youtube.models import Transcript
 
 
 class TestYoutubeTranscriptTool:

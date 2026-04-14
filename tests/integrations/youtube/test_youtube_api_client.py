@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
-from techpulse.pipeline.integrations.youtube.models import Transcript, VideoMetadata
-from techpulse.pipeline.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
+from techpulse.integrations.youtube.exceptions import TranscriptError
+from techpulse.integrations.youtube.models import Transcript, VideoMetadata
+from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 
 
 def _make_client(api=None, urlopen=None):

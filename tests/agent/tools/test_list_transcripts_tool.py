@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from techpulse.agent.tools.youtube_transcript_tools import ListTranscriptsTool
-from techpulse.pipeline.integrations.youtube.exceptions import TranscriptError
+from techpulse.integrations.youtube.exceptions import TranscriptError
 
 
 class TestListTranscriptsTool:

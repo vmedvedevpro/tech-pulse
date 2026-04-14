@@ -1,7 +1,6 @@
 import pytest
 
-from techpulse.agent.tools.submit_summary_tool import SubmitSummaryTool
-from techpulse.pipeline.models import ContentSummary
+from techpulse.agent.tools.submit_summary_tool import ContentSummary, SubmitSummaryTool
 
 _VALID_INPUT = {
     "source_id": "abc123",
