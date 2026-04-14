@@ -8,12 +8,13 @@ from techpulse.integrations.youtube.models import Transcript, VideoMetadata
 
 
 class YouTubeTranscriptClient:
-    def __init__(self, api: YouTubeTranscriptApi, urlopen=urllib.request.urlopen) -> None:
+    def __init__(self, api: YouTubeTranscriptApi, oembed_url: str, urlopen=urllib.request.urlopen) -> None:
         self._api = api
+        self._oembed_url = oembed_url
         self._urlopen = urlopen
 
     def fetch_video_metadata(self, video_id: str) -> VideoMetadata:
-        url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        url = f"{self._oembed_url}?url=https://www.youtube.com/watch?v={video_id}&format=json"
         try:
             with self._urlopen(url) as response:
                 data = json.loads(response.read())

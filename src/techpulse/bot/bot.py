@@ -1,44 +1,113 @@
 import asyncio
+import time
+from contextlib import suppress
 
 from loguru import logger
 from telegram import Update
-from telegram.constants import ParseMode
-from telegram.error import BadRequest
-from telegram.ext import Application, ContextTypes, MessageHandler, filters
+from telegram.error import TelegramError
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from techpulse.agent.core.agent import Agent
+from techpulse.agent.core.events import TextDelta, ToolUseCompleted, ToolUseStarted
 from techpulse.bootstrap import create_agent
 from techpulse.config import settings
 from techpulse.logging import setup_logging
 from techpulse.persistence.channel_repository import ChannelRepository
 from techpulse.persistence.redis_client import create_redis
+from techpulse.persistence.video_repository import VideoRepository
 
-_EDIT_INTERVAL = 0.2  # minimum seconds between Telegram message edits
+_DRAFT_INTERVAL = 0.2  # minimum seconds between draft updates
+_CHECK_TRIGGER = "Check my subscribed channels for new videos and write a digest."
 
 
 class BotApp:
     def __init__(self) -> None:
         self._channel_repository: ChannelRepository | None = None
+        self._video_repository: VideoRepository | None = None
         self._agents: dict[int, Agent] = {}
 
     async def initialize(self) -> None:
         redis = await create_redis(settings.redis_url)
         self._channel_repository = ChannelRepository(redis)
+        self._video_repository = VideoRepository(redis)
         logger.info("redis connected")
 
     def _get_agent(self, user_id: int) -> Agent:
         if user_id not in self._agents:
             logger.info("creating agent | user_id={}", user_id)
-            self._agents[user_id] = create_agent(user_id, self._channel_repository)
+            self._agents[user_id] = create_agent(
+                user_id, self._channel_repository, self._video_repository
+            )
             logger.info("agent created | user_id={}", user_id)
         return self._agents[user_id]
+
+    async def _stream_agent_response(
+            self,
+            user_id: int,
+            username: str,
+            chat_id: int,
+            text: str,
+            update: Update,
+    ) -> None:
+        with logger.contextualize(user_id=user_id, username=username, chat_id=chat_id):
+            agent = self._get_agent(user_id)
+            bot = update.get_bot()
+            draft_id = int(time.time() * 1000) & 0x7FFFFFFF or 1
+
+            buffer = ""
+            active_tool: str | None = None
+            last_pushed = ""
+            last_push_at = 0.0
+
+            def render() -> str:
+                if active_tool:
+                    suffix = f"\n\n🔧 <i>{active_tool}…</i>"
+                    return (buffer + suffix).lstrip()
+                return buffer
+
+            async def push_draft(draft_text: str) -> None:
+                with suppress(TelegramError):
+                    await bot.send_message_draft(
+                        chat_id=chat_id,
+                        draft_id=draft_id,
+                        text=draft_text,
+                        parse_mode="HTML",
+                    )
+
+            try:
+                async for event in agent.stream_chat(text):
+                    match event:
+                        case TextDelta(delta):
+                            buffer += delta
+                        case ToolUseStarted(tool_name):
+                            active_tool = tool_name
+                        case ToolUseCompleted():
+                            active_tool = None
+
+                    view = render()
+                    now = asyncio.get_running_loop().time()
+                    force = isinstance(event, (ToolUseStarted, ToolUseCompleted))
+                    if view.strip() and view != last_pushed and (
+                            force or now - last_push_at >= _DRAFT_INTERVAL
+                    ):
+                        await push_draft(view)
+                        last_pushed = view
+                        last_push_at = now
+
+                final = buffer.strip() or "(no response)"
+                await update.effective_message.reply_text(final, parse_mode="HTML")
+
+            except Exception as exc:
+                logger.exception("agent error | {}", exc)
+                await update.effective_message.reply_text(
+                    "An error occurred while processing your message."
+                )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
             return
 
         user = update.effective_user
-        chat_id = update.effective_chat.id
         user_id = user.id if user else None
         username = user.username if user else "?"
 
@@ -46,40 +115,28 @@ class BotApp:
             logger.warning("message without user_id, skipping")
             return
 
-        with logger.contextualize(user_id=user_id, username=username, chat_id=chat_id):
-            logger.info("incoming message | len={}", len(update.message.text))
+        logger.info("incoming message | user_id={} len={}", user_id, len(update.message.text))
+        await self._stream_agent_response(
+            user_id, username, update.effective_chat.id, update.message.text, update
+        )
 
-            agent = self._get_agent(user_id)
-            msg = await update.message.reply_text("...")
+    async def handle_check(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user = update.effective_user
+        user_id = user.id if user else None
+        username = user.username if user else "?"
 
-            buffer = ""
-            last_edit_at = asyncio.get_running_loop().time()
+        if user_id is None:
+            logger.warning("check command without user_id, skipping")
+            return
 
-            async def edit(text: str) -> None:
-                try:
-                    await msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
-                except BadRequest as e:
-                    if "can't parse" in str(e).lower():
-                        await msg.edit_text(text)  # fallback to plain text
-                    # else: content unchanged, skip
-
-            try:
-                async for chunk in agent.stream_chat(update.message.text):
-                    buffer += chunk
-                    now = asyncio.get_running_loop().time()
-                    if now - last_edit_at >= _EDIT_INTERVAL and buffer.strip():
-                        await edit(buffer)
-                        last_edit_at = now
-
-                await edit(buffer) if buffer.strip() else await msg.edit_text("(no response)")
-
-            except Exception as exc:
-                logger.exception("agent error | {}", exc)
-                await msg.edit_text("An error occurred while processing your message.")
+        logger.info("check command | user_id={}", user_id)
+        await self._stream_agent_response(
+            user_id, username, update.effective_chat.id, _CHECK_TRIGGER, update
+        )
 
 
 def main() -> None:
-    setup_logging()
+    setup_logging(settings.log_level)
     logger.info("starting bot")
 
     bot_app = BotApp()
@@ -90,6 +147,7 @@ def main() -> None:
         .post_init(lambda _: bot_app.initialize())
         .build()
     )
+    app.add_handler(CommandHandler("check", bot_app.handle_check))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_app.handle_message))
     app.run_polling()
 

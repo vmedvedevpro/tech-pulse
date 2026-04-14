@@ -33,16 +33,16 @@ class AddChannelTool(Tool):
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         handle: str = tool_input["channel_handle"]
         log = logger.bind(user_id=self._user_id, handle=handle)
-        log.debug("add_channel | checking")
+        log.debug("checking subscription")
 
         if await self._repo.is_subscribed(self._user_id, handle):
-            log.debug("add_channel | already subscribed")
+            log.debug("already subscribed")
             return ToolResult(
                 content=json.dumps({"status": "already_subscribed", "channel_handle": handle}, ensure_ascii=False)
             )
 
         await self._repo.subscribe(self._user_id, handle)
-        log.info("add_channel | subscribed")
+        log.info("subscribed")
         return ToolResult(
             content=json.dumps({"status": "subscribed", "channel_handle": handle}, ensure_ascii=False)
         )
@@ -67,10 +67,10 @@ class ListChannelsTool(Tool):
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         log = logger.bind(user_id=self._user_id)
-        log.debug("list_channels | fetching")
+        log.debug("fetching subscriptions")
 
         channels = await self._repo.get_subscriptions(self._user_id)
-        log.debug("list_channels | count={}", len(channels))
+        log.debug("count={}", len(channels))
 
         payload = {"channels": [c.handle for c in channels]}
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
@@ -97,16 +97,16 @@ class RemoveChannelTool(Tool):
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         handle: str = tool_input["channel_handle"]
         log = logger.bind(user_id=self._user_id, handle=handle)
-        log.debug("remove_channel | checking")
+        log.debug("checking subscription")
 
         if not await self._repo.is_subscribed(self._user_id, handle):
-            log.debug("remove_channel | not subscribed")
+            log.debug("not subscribed")
             return ToolResult(
                 content=json.dumps({"status": "not_found", "channel_handle": handle}, ensure_ascii=False)
             )
 
         await self._repo.unsubscribe(self._user_id, handle)
-        log.info("remove_channel | removed")
+        log.info("removed")
         return ToolResult(
             content=json.dumps({"status": "removed", "channel_handle": handle}, ensure_ascii=False)
         )
