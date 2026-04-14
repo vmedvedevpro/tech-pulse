@@ -6,14 +6,13 @@ dependencies = [
     "anthropic>=0.94.1",
     "pydantic>=2.13.0",
     "pydantic-settings>=2.0.0",
-    "rich>=13.0.0",
     "youtube-transcript-api>=0.6.0",
     "python-telegram-bot>=21.0",
     "loguru>=0.7.0",
 ]
 
 [project.scripts]
-techpulse = "techpulse.cli:main"
+techpulse = "techpulse.bot.bot:main"
 
 [build-system]
 requires = ["hatchling"]

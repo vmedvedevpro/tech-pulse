@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+
 import anthropic
 from loguru import logger
 
@@ -12,33 +14,33 @@ class Agent:
         self._messages: list[dict] = []
         self._system = system
 
-    async def chat(self, user_message: str) -> str:
+    async def stream_chat(self, user_message: str) -> AsyncIterator[str]:
         self._messages.append({"role": "user", "content": user_message})
 
         while True:
             create_kwargs = dict(
                 model=settings.anthropic_model,
-                max_tokens=1024,
+                max_tokens=2048,
                 tools=self._registry.get_schemas(),
                 messages=self._messages,
             )
             if self._system:
                 create_kwargs["system"] = self._system
 
-            response: anthropic.types.Message = await self._client.messages.create(**create_kwargs)
+            async with self._client.messages.stream(**create_kwargs) as stream:
+                async for chunk in stream.text_stream:
+                    yield chunk
+                final_message = await stream.get_final_message()
 
-            if response.stop_reason == "end_turn":
-                # noinspection PyUnresolvedReferences
-                answer = response.content[0].text
-                self._messages.append({"role": "assistant", "content": answer})
-                logger.info("agent finished | answer length: {} chars", len(answer))
-                return answer
+            self._messages.append({"role": "assistant", "content": final_message.content})
 
-            if response.stop_reason == "tool_use":
-                self._messages.append({"role": "assistant", "content": response.content})
+            if final_message.stop_reason == "end_turn":
+                logger.info("agent finished | output_tokens={}", final_message.usage.output_tokens)
+                return
+
+            if final_message.stop_reason == "tool_use":
                 tool_results = []
-
-                for block in response.content:
+                for block in final_message.content:
                     if isinstance(block, anthropic.types.ToolUseBlock):
                         result = await self._registry.run(block.name, block.input)
                         if result.is_error:
@@ -49,5 +51,10 @@ class Agent:
                             "content": result.content,
                             "is_error": result.is_error,
                         })
-
                 self._messages.append({"role": "user", "content": tool_results})
+
+    async def chat(self, user_message: str) -> str:
+        chunks: list[str] = []
+        async for chunk in self.stream_chat(user_message):
+            chunks.append(chunk)
+        return "".join(chunks)
