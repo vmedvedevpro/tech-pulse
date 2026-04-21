@@ -15,6 +15,7 @@ from techpulse.config import settings
 from techpulse.logging import setup_logging
 from techpulse.persistence.channel_repository import ChannelRepository
 from techpulse.persistence.redis_client import create_redis
+from techpulse.persistence.user_interests_repository import InterestsRepository
 from techpulse.persistence.video_repository import VideoRepository
 
 _DRAFT_INTERVAL = 0.2  # minimum seconds between draft updates
@@ -25,19 +26,24 @@ class BotApp:
     def __init__(self) -> None:
         self._channel_repository: ChannelRepository | None = None
         self._video_repository: VideoRepository | None = None
+        self._interests_repository: InterestsRepository | None = None
         self._agents: dict[int, Agent] = {}
 
     async def initialize(self) -> None:
         redis = await create_redis(settings.redis_url)
         self._channel_repository = ChannelRepository(redis)
         self._video_repository = VideoRepository(redis)
+        self._interests_repository = InterestsRepository(redis)
         logger.info("redis connected")
 
     def _get_agent(self, user_id: int) -> Agent:
         if user_id not in self._agents:
             logger.info("creating agent | user_id={}", user_id)
             self._agents[user_id] = create_agent(
-                user_id, self._channel_repository, self._video_repository
+                user_id,
+                self._channel_repository,
+                self._video_repository,
+                self._interests_repository,
             )
             logger.info("agent created | user_id={}", user_id)
         return self._agents[user_id]
