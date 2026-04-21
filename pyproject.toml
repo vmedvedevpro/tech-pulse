@@ -10,6 +10,7 @@ dependencies = [
     "python-telegram-bot>=21.0",
     "loguru>=0.7.0",
     "redis>=5.0.0",
+    "PyGithub>=2.0.0",
 ]
 
 [project.scripts]
