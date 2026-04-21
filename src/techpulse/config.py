@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     youtube_oembed_url: str = "https://www.youtube.com/oembed"
     log_level: str
     github_token: str | None = None
+    agent_ttl: float = 1800.0
+    agent_sweep_interval: float = 300.0
 
     model_config = {"env_file": ".env"}
 
