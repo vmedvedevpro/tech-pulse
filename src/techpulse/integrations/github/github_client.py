@@ -69,7 +69,7 @@ class GitHubClient:
             result.append(ReleaseInfo(
                 repo=repo,
                 tag=release.tag_name,
-                name=release.title or release.tag_name,
+                name=release.name or release.tag_name,
                 body=(release.body or "").strip(),
                 published_at=published_at or datetime.now(timezone.utc),
                 url=release.html_url,
@@ -98,7 +98,7 @@ class GitHubClient:
             return ReleaseInfo(
                 repo=repo,
                 tag=release.tag_name,
-                name=release.title or release.tag_name,
+                name=release.name or release.tag_name,
                 body=(release.body or "").strip(),
                 published_at=published_at or datetime.now(timezone.utc),
                 url=release.html_url,

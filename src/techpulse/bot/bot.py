@@ -42,6 +42,7 @@ class BotApp:
         self._release_repository = ReleaseRepository(redis)
         logger.info("redis connected")
 
+    # noinspection PyTypeChecker
     def _get_agent(self, user_id: int) -> Agent:
         if user_id not in self._agents:
             logger.info("creating agent | user_id={}", user_id)
