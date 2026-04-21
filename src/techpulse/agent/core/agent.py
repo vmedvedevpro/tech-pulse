@@ -46,7 +46,14 @@ class Agent:
             self._messages.append({"role": "assistant", "content": final_message.content})
 
             if final_message.stop_reason == "end_turn":
-                logger.info("finished | output_tokens={}", final_message.usage.output_tokens)
+                u = final_message.usage
+                logger.info(
+                    "finished | output={} input={} cache_read={} cache_write={}",
+                    u.output_tokens,
+                    u.input_tokens,
+                    u.cache_read_input_tokens,
+                    u.cache_creation_input_tokens,
+                )
                 return
 
             if final_message.stop_reason == "tool_use":
@@ -82,5 +89,9 @@ class Agent:
             messages=self._messages,
         )
         if self._system:
-            kwargs["system"] = self._system
+            kwargs["system"] = [{
+                "type": "text",
+                "text": self._system,
+                "cache_control": {"type": "ephemeral"}
+            }]
         return self._client.messages.stream(**kwargs)

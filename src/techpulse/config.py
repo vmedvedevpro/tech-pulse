@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
     youtube_oembed_url: str = "https://www.youtube.com/oembed"
     log_level: str
+    github_token: str | None = None
 
     model_config = {"env_file": ".env"}
 

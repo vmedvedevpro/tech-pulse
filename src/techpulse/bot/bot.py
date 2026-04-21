@@ -15,6 +15,9 @@ from techpulse.config import settings
 from techpulse.logging import setup_logging
 from techpulse.persistence.channel_repository import ChannelRepository
 from techpulse.persistence.redis_client import create_redis
+from techpulse.persistence.release_repository import ReleaseRepository
+from techpulse.persistence.repo_repository import RepoRepository
+from techpulse.persistence.user_interests_repository import InterestsRepository
 from techpulse.persistence.video_repository import VideoRepository
 
 _DRAFT_INTERVAL = 0.2  # minimum seconds between draft updates
@@ -25,19 +28,31 @@ class BotApp:
     def __init__(self) -> None:
         self._channel_repository: ChannelRepository | None = None
         self._video_repository: VideoRepository | None = None
+        self._interests_repository: InterestsRepository | None = None
+        self._repo_repository: RepoRepository | None = None
+        self._release_repository: ReleaseRepository | None = None
         self._agents: dict[int, Agent] = {}
 
     async def initialize(self) -> None:
         redis = await create_redis(settings.redis_url)
         self._channel_repository = ChannelRepository(redis)
         self._video_repository = VideoRepository(redis)
+        self._interests_repository = InterestsRepository(redis)
+        self._repo_repository = RepoRepository(redis)
+        self._release_repository = ReleaseRepository(redis)
         logger.info("redis connected")
 
+    # noinspection PyTypeChecker
     def _get_agent(self, user_id: int) -> Agent:
         if user_id not in self._agents:
             logger.info("creating agent | user_id={}", user_id)
             self._agents[user_id] = create_agent(
-                user_id, self._channel_repository, self._video_repository
+                user_id,
+                self._channel_repository,
+                self._video_repository,
+                self._interests_repository,
+                self._repo_repository,
+                self._release_repository,
             )
             logger.info("agent created | user_id={}", user_id)
         return self._agents[user_id]
@@ -76,6 +91,7 @@ class BotApp:
                         parse_mode="HTML",
                     )
 
+            final: str
             try:
                 async for event in agent.stream_chat(text):
                     if not isinstance(event, TextDelta):
@@ -91,15 +107,15 @@ class BotApp:
                         last_push_at = now
 
                 final = buffer.strip() or "(no response)"
-                await update.effective_message.reply_text(final, parse_mode="HTML")
-
             except Exception as exc:
                 logger.exception("agent error | {}", exc)
-                await update.effective_message.reply_text(
-                    "An error occurred while processing your message."
-                )
+                final = "An error occurred while processing your message."
             finally:
                 typing_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await typing_task
+
+            await update.effective_message.reply_text(final, parse_mode="HTML")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
