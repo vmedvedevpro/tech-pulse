@@ -8,8 +8,7 @@ from techpulse.integrations.youtube.exceptions import TranscriptError, YouTubeAP
 from techpulse.integrations.youtube.models import VideoInfo
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 from techpulse.integrations.youtube.youtube_data_client import YouTubeDataClient
-from techpulse.persistence.repositories.channel_repository import ChannelRepository
-from techpulse.persistence.repositories.video_repository import VideoRepository
+from techpulse.persistence.repositories.protocols import ChannelRepositoryProtocol, VideoRepositoryProtocol
 
 
 @dataclass
@@ -27,8 +26,8 @@ class DigestWorker:
             self,
             yt_data: YouTubeDataClient,
             yt_transcript: YouTubeTranscriptClient,
-            channel_repo: ChannelRepository,
-            video_repo: VideoRepository,
+            channel_repo: ChannelRepositoryProtocol,
+            video_repo: VideoRepositoryProtocol,
             user_id: int,
     ) -> None:
         self._yt_data = yt_data

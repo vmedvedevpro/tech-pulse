@@ -4,8 +4,7 @@ from datetime import datetime
 from loguru import logger
 
 from techpulse.integrations.github.github_client import GitHubClient, GitHubError
-from techpulse.persistence.repositories.release_repository import ReleaseRepository
-from techpulse.persistence.repositories.repo_repository import RepoRepository
+from techpulse.persistence.repositories.protocols import ReleaseRepositoryProtocol, RepoRepositoryProtocol
 
 
 @dataclass
@@ -23,8 +22,8 @@ class GitHubWorker:
     def __init__(
             self,
             github: GitHubClient,
-            repo_repo: RepoRepository,
-            release_repo: ReleaseRepository,
+            repo_repo: RepoRepositoryProtocol,
+            release_repo: ReleaseRepositoryProtocol,
             user_id: int,
     ) -> None:
         self._github = github

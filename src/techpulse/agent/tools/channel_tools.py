@@ -4,7 +4,7 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.persistence.repositories.channel_repository import ChannelRepository
+from techpulse.persistence.repositories.protocols import ChannelRepositoryProtocol
 
 _HANDLE_PARAM = {
     "type": "string",
@@ -26,7 +26,7 @@ class AddChannelTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: ChannelRepository, user_id: int) -> None:
+    def __init__(self, repository: ChannelRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -61,7 +61,7 @@ class ListChannelsTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: ChannelRepository, user_id: int) -> None:
+    def __init__(self, repository: ChannelRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -90,7 +90,7 @@ class RemoveChannelTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: ChannelRepository, user_id: int) -> None:
+    def __init__(self, repository: ChannelRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 

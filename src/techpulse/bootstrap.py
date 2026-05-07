@@ -18,22 +18,24 @@ from techpulse.config import settings
 from techpulse.integrations.github.github_client import GitHubClient
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 from techpulse.integrations.youtube.youtube_data_client import YouTubeDataClient
-from techpulse.persistence.repositories.channel_repository import ChannelRepository
-from techpulse.persistence.repositories.release_repository import ReleaseRepository
-from techpulse.persistence.repositories.repo_repository import RepoRepository
-from techpulse.persistence.repositories.user_interests_repository import InterestsRepository
-from techpulse.persistence.repositories.video_repository import VideoRepository
+from techpulse.persistence.repositories.protocols import (
+    ChannelRepositoryProtocol,
+    InterestsRepositoryProtocol,
+    ReleaseRepositoryProtocol,
+    RepoRepositoryProtocol,
+    VideoRepositoryProtocol,
+)
 from techpulse.workers.digest_worker import DigestWorker
 from techpulse.workers.github_worker import GitHubWorker
 
 
 def create_agent(
         user_id: int,
-        channel_repository: ChannelRepository,
-        video_repository: VideoRepository,
-        interests_repository: InterestsRepository,
-        repo_repository: RepoRepository,
-        release_repository: ReleaseRepository,
+        channel_repository: ChannelRepositoryProtocol,
+        video_repository: VideoRepositoryProtocol,
+        interests_repository: InterestsRepositoryProtocol,
+        repo_repository: RepoRepositoryProtocol,
+        release_repository: ReleaseRepositoryProtocol,
 ) -> Agent:
     registry = ToolRegistry()
 

@@ -4,7 +4,7 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.persistence.repositories.user_interests_repository import InterestsRepository
+from techpulse.persistence.repositories.protocols import InterestsRepositoryProtocol
 
 _INTEREST_PARAM = {
     "type": "string",
@@ -26,7 +26,7 @@ class AddInterestTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: InterestsRepository, user_id: int) -> None:
+    def __init__(self, repository: InterestsRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -61,7 +61,7 @@ class ListInterestsTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: InterestsRepository, user_id: int) -> None:
+    def __init__(self, repository: InterestsRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -89,7 +89,7 @@ class RemoveInterestTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: InterestsRepository, user_id: int) -> None:
+    def __init__(self, repository: InterestsRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 

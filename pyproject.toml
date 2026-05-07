@@ -27,7 +27,8 @@ packages = ["src/techpulse"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
