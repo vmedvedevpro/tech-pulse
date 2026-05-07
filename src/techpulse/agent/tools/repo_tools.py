@@ -4,7 +4,7 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.persistence.repo_repository import RepoRepository
+from techpulse.persistence.repositories.repo_repository import RepoRepository
 
 _REPO_PARAM = {
     "type": "string",

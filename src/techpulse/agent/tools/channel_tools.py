@@ -4,7 +4,7 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.persistence.channel_repository import ChannelRepository
+from techpulse.persistence.repositories.channel_repository import ChannelRepository
 
 _HANDLE_PARAM = {
     "type": "string",
@@ -72,7 +72,7 @@ class ListChannelsTool(Tool):
         channels = await self._repo.get_subscriptions(self._user_id)
         log.debug("count={}", len(channels))
 
-        payload = {"channels": [c.handle for c in channels]}
+        payload = {"channels": channels}
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
 
