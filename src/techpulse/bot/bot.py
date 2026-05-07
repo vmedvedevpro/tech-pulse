@@ -1,6 +1,7 @@
 import asyncio
 import time
 from contextlib import suppress
+from dataclasses import dataclass, field
 
 from loguru import logger
 from telegram import Update
@@ -24,6 +25,12 @@ _DRAFT_INTERVAL = 0.2  # minimum seconds between draft updates
 _CHECK_TRIGGER = "Check my subscribed channels for new videos and write a digest."
 
 
+@dataclass
+class _AgentEntry:
+    agent: Agent
+    last_active: float = field(default_factory=time.monotonic)
+
+
 class BotApp:
     def __init__(self) -> None:
         self._channel_repository: ChannelRepository | None = None
@@ -31,7 +38,8 @@ class BotApp:
         self._interests_repository: InterestsRepository | None = None
         self._repo_repository: RepoRepository | None = None
         self._release_repository: ReleaseRepository | None = None
-        self._agents: dict[int, Agent] = {}
+        self._agents: dict[int, _AgentEntry] = {}
+        self._sweep_task: asyncio.Task | None = None
 
     async def initialize(self) -> None:
         redis = await create_redis(settings.redis_url)
@@ -41,12 +49,31 @@ class BotApp:
         self._repo_repository = RepoRepository(redis)
         self._release_repository = ReleaseRepository(redis)
         logger.info("redis connected")
+        self._sweep_task = asyncio.create_task(self._eviction_loop(), name="agent-eviction")
+
+    async def shutdown(self) -> None:
+        if self._sweep_task:
+            self._sweep_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._sweep_task
+
+    async def _eviction_loop(self) -> None:
+        while True:
+            await asyncio.sleep(settings.agent_sweep_interval)
+            self._evict_inactive()
+
+    def _evict_inactive(self) -> None:
+        now = time.monotonic()
+        stale = [uid for uid, entry in self._agents.items() if now - entry.last_active > settings.agent_ttl]
+        for uid in stale:
+            del self._agents[uid]
+            logger.info("agent evicted | user_id={}", uid)
 
     # noinspection PyTypeChecker
     def _get_agent(self, user_id: int) -> Agent:
         if user_id not in self._agents:
             logger.info("creating agent | user_id={}", user_id)
-            self._agents[user_id] = create_agent(
+            agent = create_agent(
                 user_id,
                 self._channel_repository,
                 self._video_repository,
@@ -54,8 +81,11 @@ class BotApp:
                 self._repo_repository,
                 self._release_repository,
             )
+            self._agents[user_id] = _AgentEntry(agent=agent)
             logger.info("agent created | user_id={}", user_id)
-        return self._agents[user_id]
+        entry = self._agents[user_id]
+        entry.last_active = time.monotonic()
+        return entry.agent
 
     async def _stream_agent_response(
             self,
@@ -159,6 +189,7 @@ def main() -> None:
         Application.builder()
         .token(settings.telegram_bot_token)
         .post_init(lambda _: bot_app.initialize())
+        .post_shutdown(lambda _: bot_app.shutdown())
         .build()
     )
     app.add_handler(CommandHandler("check", bot_app.handle_check))
