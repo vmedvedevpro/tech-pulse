@@ -84,5 +84,15 @@ class TestCheckDigestTool:
         result = await tool.run({})
 
         video = json.loads(result.content)["new_videos"][0]
-        expected_keys = {"video_id", "title", "channel_title", "published_at", "transcript", "transcript_language"}
+        expected_keys = {"video_id", "url", "title", "channel_title", "published_at", "transcript",
+                         "transcript_language"}
         assert set(video.keys()) == expected_keys
+
+    @pytest.mark.asyncio
+    async def test_run_builds_youtube_watch_url_from_video_id(self):
+        tool, _, _ = _make_tool(yt_returns=[_make_item(video_id="abc123")])
+
+        result = await tool.run({})
+
+        video = json.loads(result.content)["new_videos"][0]
+        assert video["url"] == "https://www.youtube.com/watch?v=abc123"

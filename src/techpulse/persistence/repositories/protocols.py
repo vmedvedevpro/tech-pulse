@@ -1,4 +1,17 @@
+from datetime import datetime
 from typing import Protocol
+
+
+class DigestSubscriptionRepositoryProtocol(Protocol):
+    async def subscribe(self, user_id: int) -> None: ...
+
+    async def unsubscribe(self, user_id: int) -> None: ...
+
+    async def is_subscribed(self, user_id: int) -> bool: ...
+
+    async def list_due(self, threshold: datetime) -> list[int]: ...
+
+    async def mark_sent(self, user_id: int, sent_at: datetime) -> None: ...
 
 
 class ChannelRepositoryProtocol(Protocol):
