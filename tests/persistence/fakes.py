@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 class FakeChannelRepository:
     def __init__(self) -> None:
         self._subs: dict[int, set[str]] = {}
@@ -47,6 +50,31 @@ class FakeInterestsRepository:
 
     async def has_interest(self, user_id: int, interest: str) -> bool:
         return interest in self._interests.get(user_id, set())
+
+
+class FakeDigestSubscriptionRepository:
+    def __init__(self) -> None:
+        self._subs: dict[int, datetime | None] = {}
+
+    async def subscribe(self, user_id: int) -> None:
+        self._subs.setdefault(user_id, None)
+
+    async def unsubscribe(self, user_id: int) -> None:
+        self._subs.pop(user_id, None)
+
+    async def is_subscribed(self, user_id: int) -> bool:
+        return user_id in self._subs
+
+    async def list_due(self, threshold: datetime) -> list[int]:
+        return sorted(
+            uid
+            for uid, sent_at in self._subs.items()
+            if sent_at is None or sent_at < threshold
+        )
+
+    async def mark_sent(self, user_id: int, sent_at: datetime) -> None:
+        if user_id in self._subs:
+            self._subs[user_id] = sent_at
 
 
 class FakeSeenItemsRepository:

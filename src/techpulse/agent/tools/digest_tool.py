@@ -47,6 +47,7 @@ class CheckDigestTool(Tool):
             "new_videos": [
                 {
                     "video_id": item.video_id,
+                    "url": f"https://www.youtube.com/watch?v={item.video_id}",
                     "title": item.title,
                     "channel_title": item.channel_title,
                     "published_at": item.published_at.isoformat(),

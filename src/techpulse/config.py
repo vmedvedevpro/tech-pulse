@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     agent_ttl: float = 1800.0
     agent_sweep_interval: float = 300.0
 
+    weekly_digest_dow: int = 0
+    weekly_digest_hour: int = 9
+    digest_scheduler_interval: float = 60.0
+
     alembic_database_url: str | None = None
 
     model_config = {"env_file": ".env"}

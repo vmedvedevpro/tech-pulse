@@ -1,33 +1,42 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import anthropic
 from loguru import logger
 
 from techpulse.agent.core.events import AgentEvent, TextDelta
 from techpulse.agent.core.tool_registry import ToolRegistry
-from techpulse.config import settings
 
 _MAX_RETRIES = 4
 _RETRY_BASE_DELAY = 5.0  # seconds; multiplied by attempt number
 
 
 class Agent:
-    def __init__(self, registry: ToolRegistry, system: str | None = None):
-        self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    def __init__(
+            self,
+            registry: ToolRegistry,
+            api_key: str,
+            model: str,
+            system: str | None = None,
+            user_context_loader: Callable[[], Awaitable[str]] | None = None,
+    ):
+        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+        self._model = model
         self._registry = registry
         self._messages: list[dict] = []
         self._system = system
+        self._user_context_loader = user_context_loader
 
     async def stream_chat(self, user_message: str) -> AsyncIterator[AgentEvent]:
         self._messages.append({"role": "user", "content": user_message})
 
         while True:
+            user_context = await self._user_context_loader() if self._user_context_loader else None
             final_message: anthropic.types.Message | None = None
 
             for attempt in range(_MAX_RETRIES):
                 try:
-                    async with self._open_stream() as stream:
+                    async with self._open_stream(user_context) as stream:
                         async for delta in stream.text_stream:
                             yield TextDelta(delta)
                         final_message = await stream.get_final_message()
@@ -81,17 +90,22 @@ class Agent:
                     })
                 self._messages.append({"role": "user", "content": tool_results})
 
-    def _open_stream(self):
+    def _open_stream(self, user_context: str | None = None):
         kwargs = dict(
-            model=settings.anthropic_model,
+            model=self._model,
             max_tokens=2048,
             tools=self._registry.get_schemas(),
             messages=self._messages,
         )
+        system_blocks: list[dict] = []
         if self._system:
-            kwargs["system"] = [{
+            system_blocks.append({
                 "type": "text",
                 "text": self._system,
-                "cache_control": {"type": "ephemeral"}
-            }]
+                "cache_control": {"type": "ephemeral"},
+            })
+        if user_context:
+            system_blocks.append({"type": "text", "text": user_context})
+        if system_blocks:
+            kwargs["system"] = system_blocks
         return self._client.messages.stream(**kwargs)
