@@ -19,42 +19,61 @@ interest topics — and delivers structured summaries right in Telegram.
 - **Unified digest** — `/check` collects new YouTube videos (with transcripts) and new GitHub releases in parallel
 - **Deduplication** — seen videos and releases are remembered in Redis and excluded from future digests
 - **On-demand repo info** — ask the agent about any GitHub repo: description, stars, language, topics
-- **Streaming responses** — agent replies are streamed to Telegram in real time
-- **Claude agent with tool use** — the agent autonomously decides which tools to call and composes the response
+- **Per-user agents with conversation history** — each Telegram user gets a dedicated agent instance that retains full
+  message history across turns
+- **Agent eviction** — idle agents are evicted after a configurable TTL to free memory
+- **Streaming responses** — agent replies are streamed to Telegram in real time via draft messages
+- **Prompt caching** — system prompt is cached with `cache_control: ephemeral` to reduce token costs
+- **Retry on overload** — automatically retries on Anthropic HTTP 529 with linear backoff (up to 4 attempts)
 
 ## Architecture
 
 ```
-Telegram ↔ Bot ↔ Agent (Claude)
-                    │
-                    ├── YouTube tools
-                    │     ├── add_channel / remove_channel / list_channels
-                    │     ├── fetch_video_metadata
-                    │     └── list_transcripts / fetch_transcript
-                    │
-                    ├── GitHub tools
-                    │     ├── add_repo / remove_repo / list_repos
-                    │     ├── get_repo_info
-                    │     └── get_latest_release
-                    │
-                    ├── Interest tools
-                    │     ├── add_interest / remove_interest / list_interests
-                    │
-                    └── check_digest  ←── DigestWorker (YouTube)
-                                      ←── GitHubWorker  (releases)
+Telegram ↔ BotApp ↔ Agent pool (per user_id)
+                         │
+                    Agent (Claude)
+                         │
+                    ToolRegistry
+                         │
+              ┌──────────┼──────────────┐
+              │          │              │
+         YouTube       GitHub       Channels /
+          tools         tools      Interests /
+              │          │          Repos tools
+              │          │
+        ┌─────┴─────┐  ┌─┴──────────────┐
+        DigestWorker   GitHubWorker
+        (YouTube)      (Releases)
 
 Persistence (Redis)
-  ├── ChannelRepository     — subscribed YouTube channels
-  ├── VideoRepository       — seen video IDs
-  ├── RepoRepository        — watched GitHub repos
-  ├── ReleaseRepository     — seen GitHub releases
-  └── InterestsRepository   — user interest topics
+  ├── ChannelRepository     — subscribed YouTube channels (per user)
+  ├── VideoRepository       — seen video IDs (per user)
+  ├── RepoRepository        — watched GitHub repos (per user)
+  ├── ReleaseRepository     — seen GitHub releases (per user)
+  └── InterestsRepository   — user interest topics (per user)
 
 Integrations
-  ├── YouTube Data API v3   — channel / video metadata
-  ├── youtube-transcript-api — video transcripts
-  └── GitHub REST API       — repo info, releases
+  ├── YouTube Data API v3      — channel / video metadata
+  ├── youtube-transcript-api   — video transcripts
+  └── GitHub REST API          — repo info, releases
 ```
+
+### Tools registered per agent
+
+| Group              | Tool                                                  | Description                                 |
+|--------------------|-------------------------------------------------------|---------------------------------------------|
+| YouTube data       | `resolve_channel_id`                                  | Resolve a channel handle to its ID          |
+|                    | `get_recent_videos`                                   | Fetch recent videos from a channel          |
+| YouTube transcript | `fetch_video_metadata`                                | Get video title and metadata                |
+|                    | `list_transcripts`                                    | List available transcript languages         |
+|                    | `fetch_transcript`                                    | Download full video transcript              |
+| Channels           | `add_channel` / `remove_channel` / `list_channels`    | Manage subscriptions                        |
+| Interests          | `add_interest` / `remove_interest` / `list_interests` | Manage topics                               |
+| GitHub             | `get_repo_info`                                       | Repo description, stars, language, topics   |
+|                    | `get_latest_release`                                  | Latest release tag and notes                |
+| Repos              | `add_repo` / `remove_repo` / `list_repos`             | Manage tracked repos                        |
+| Digest             | `check_digest`                                        | Run DigestWorker + GitHubWorker in parallel |
+| Summary            | `submit_summary`                                      | Submit structured content analysis          |
 
 ## Requirements
 
@@ -83,15 +102,17 @@ Create a `.env` file in the project root:
 cp .env.example .env
 ```
 
-| Variable             | Description                                     |
-|----------------------|-------------------------------------------------|
-| `ANTHROPIC_API_KEY`  | Anthropic API key (required)                    |
-| `ANTHROPIC_MODEL`    | Claude model (e.g. `claude-haiku-4-5-20251001`) |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token (required)                   |
-| `YOUTUBE_API_KEY`    | YouTube Data API v3 key (required)              |
-| `REDIS_URL`          | Redis connection URL (required)                 |
-| `GITHUB_TOKEN`       | GitHub personal access token (optional)         |
-| `LOG_LEVEL`          | Logging level (e.g. `INFO`)                     |
+| Variable               | Description                                     | Default |
+|------------------------|-------------------------------------------------|---------|
+| `ANTHROPIC_API_KEY`    | Anthropic API key (required)                    |         |
+| `ANTHROPIC_MODEL`      | Claude model (e.g. `claude-haiku-4-5-20251001`) |         |
+| `TELEGRAM_BOT_TOKEN`   | Telegram bot token (required)                   |         |
+| `YOUTUBE_API_KEY`      | YouTube Data API v3 key (required)              |         |
+| `REDIS_URL`            | Redis connection URL (required)                 |         |
+| `GITHUB_TOKEN`         | GitHub personal access token (optional)         |         |
+| `LOG_LEVEL`            | Logging level (e.g. `INFO`)                     |         |
+| `AGENT_TTL`            | Seconds before an idle agent is evicted         | `1800`  |
+| `AGENT_SWEEP_INTERVAL` | How often (seconds) the eviction loop runs      | `300`   |
 
 ## Running
 
