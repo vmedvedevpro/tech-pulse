@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -17,6 +18,13 @@ class Settings(BaseSettings):
     alembic_database_url: str | None = None
 
     model_config = {"env_file": ".env"}
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, v: str) -> str:
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        return v
 
 
 # noinspection PyArgumentList
