@@ -14,12 +14,12 @@ from techpulse.agent.core.events import TextDelta
 from techpulse.bootstrap import create_agent
 from techpulse.config import settings
 from techpulse.logging import setup_logging
-from techpulse.persistence.channel_repository import ChannelRepository
-from techpulse.persistence.redis_client import create_redis
-from techpulse.persistence.release_repository import ReleaseRepository
-from techpulse.persistence.repo_repository import RepoRepository
-from techpulse.persistence.user_interests_repository import InterestsRepository
-from techpulse.persistence.video_repository import VideoRepository
+from techpulse.persistence.database import create_session_factory
+from techpulse.persistence.repositories.channel_repository import ChannelRepository
+from techpulse.persistence.repositories.release_repository import ReleaseRepository
+from techpulse.persistence.repositories.repo_repository import RepoRepository
+from techpulse.persistence.repositories.user_interests_repository import InterestsRepository
+from techpulse.persistence.repositories.video_repository import VideoRepository
 
 _DRAFT_INTERVAL = 0.2  # minimum seconds between draft updates
 _CHECK_TRIGGER = "Check my subscribed channels for new videos and write a digest."
@@ -42,13 +42,13 @@ class BotApp:
         self._sweep_task: asyncio.Task | None = None
 
     async def initialize(self) -> None:
-        redis = await create_redis(settings.redis_url)
-        self._channel_repository = ChannelRepository(redis)
-        self._video_repository = VideoRepository(redis)
-        self._interests_repository = InterestsRepository(redis)
-        self._repo_repository = RepoRepository(redis)
-        self._release_repository = ReleaseRepository(redis)
-        logger.info("redis connected")
+        session_factory = create_session_factory(settings.database_url)
+        self._channel_repository = ChannelRepository(session_factory)
+        self._video_repository = VideoRepository(session_factory)
+        self._interests_repository = InterestsRepository(session_factory)
+        self._repo_repository = RepoRepository(session_factory)
+        self._release_repository = ReleaseRepository(session_factory)
+        logger.info("database connected")
         self._sweep_task = asyncio.create_task(self._eviction_loop(), name="agent-eviction")
 
     async def shutdown(self) -> None:
@@ -145,7 +145,9 @@ class BotApp:
                 with suppress(asyncio.CancelledError):
                     await typing_task
 
-            await update.effective_message.reply_text(final, parse_mode="HTML")
+            message = update.effective_message
+            assert message is not None
+            await message.reply_text(final, parse_mode="HTML")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
@@ -153,7 +155,7 @@ class BotApp:
 
         user = update.effective_user
         user_id = user.id if user else None
-        username = user.username if user else "?"
+        username = (user.username or "?") if user else "?"
 
         if user_id is None:
             logger.warning("message without user_id, skipping")
@@ -161,13 +163,16 @@ class BotApp:
 
         logger.info("incoming message | user_id={} len={}", user_id, len(update.message.text))
         await self._stream_agent_response(
-            user_id, username, update.effective_chat.id, update.message.text, update
+            user_id, username, update.message.chat_id, update.message.text, update
         )
 
     async def handle_check(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        chat = update.effective_chat
+        assert chat is not None
+
         user = update.effective_user
         user_id = user.id if user else None
-        username = user.username if user else "?"
+        username = (user.username or "?") if user else "?"
 
         if user_id is None:
             logger.warning("check command without user_id, skipping")
@@ -175,7 +180,7 @@ class BotApp:
 
         logger.info("check command | user_id={}", user_id)
         await self._stream_agent_response(
-            user_id, username, update.effective_chat.id, _CHECK_TRIGGER, update
+            user_id, username, chat.id, _CHECK_TRIGGER, update
         )
 
 

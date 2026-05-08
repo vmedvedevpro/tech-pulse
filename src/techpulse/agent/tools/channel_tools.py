@@ -4,7 +4,7 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.persistence.channel_repository import ChannelRepository
+from techpulse.persistence.repositories.protocols import ChannelRepositoryProtocol
 
 _HANDLE_PARAM = {
     "type": "string",
@@ -17,7 +17,10 @@ class AddChannelTool(Tool):
     description = (
         "Saves a YouTube channel to the user's subscription list. "
         "Use this when the user asks to add, track, follow, or subscribe to a channel. "
-        "Requires the channel handle (e.g. '@nickchapsas')."
+        "Requires the channel handle (e.g. '@nickchapsas'). "
+        "IMPORTANT: Only use handles explicitly provided by the user. "
+        "If the user mentions a channel by name but does not provide the handle, "
+        "ask for it — never guess or infer it."
     )
     input_schema = {
         "type": "object",
@@ -26,7 +29,7 @@ class AddChannelTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: ChannelRepository, user_id: int) -> None:
+    def __init__(self, repository: ChannelRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -61,7 +64,7 @@ class ListChannelsTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: ChannelRepository, user_id: int) -> None:
+    def __init__(self, repository: ChannelRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -72,7 +75,7 @@ class ListChannelsTool(Tool):
         channels = await self._repo.get_subscriptions(self._user_id)
         log.debug("count={}", len(channels))
 
-        payload = {"channels": [c.handle for c in channels]}
+        payload = {"channels": channels}
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
 
@@ -90,7 +93,7 @@ class RemoveChannelTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: ChannelRepository, user_id: int) -> None:
+    def __init__(self, repository: ChannelRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 

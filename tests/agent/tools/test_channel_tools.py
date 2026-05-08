@@ -8,7 +8,6 @@ from techpulse.agent.tools.channel_tools import (
     ListChannelsTool,
     RemoveChannelTool,
 )
-from techpulse.persistence.channel_repository import ChannelInfo
 
 _USER_ID = 42
 _HANDLE = "@nickchapsas"
@@ -95,10 +94,7 @@ class TestListChannelsTool:
     async def test_run_returns_channel_handles_when_subscriptions_exist(self):
         # Arrange
         repo = _make_repo()
-        repo.get_subscriptions.return_value = [
-            ChannelInfo(handle="@chan_a"),
-            ChannelInfo(handle="@chan_b"),
-        ]
+        repo.get_subscriptions.return_value = ["@chan_a", "@chan_b"]
         tool = ListChannelsTool(repo, _USER_ID)
 
         # Act

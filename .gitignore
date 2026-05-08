@@ -216,3 +216,4 @@ uv.lock
 
 # Claude Code
 .claude
+/.output.txt

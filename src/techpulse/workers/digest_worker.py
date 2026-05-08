@@ -8,8 +8,7 @@ from techpulse.integrations.youtube.exceptions import TranscriptError, YouTubeAP
 from techpulse.integrations.youtube.models import VideoInfo
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 from techpulse.integrations.youtube.youtube_data_client import YouTubeDataClient
-from techpulse.persistence.channel_repository import ChannelRepository
-from techpulse.persistence.video_repository import VideoRepository
+from techpulse.persistence.repositories.protocols import ChannelRepositoryProtocol, SeenItemsRepositoryProtocol
 
 
 @dataclass
@@ -27,8 +26,8 @@ class DigestWorker:
             self,
             yt_data: YouTubeDataClient,
             yt_transcript: YouTubeTranscriptClient,
-            channel_repo: ChannelRepository,
-            video_repo: VideoRepository,
+            channel_repo: ChannelRepositoryProtocol,
+            video_repo: SeenItemsRepositoryProtocol,
             user_id: int,
     ) -> None:
         self._yt_data = yt_data
@@ -46,12 +45,12 @@ class DigestWorker:
         all_videos: list[VideoInfo] = []
         for channel in subscriptions:
             try:
-                channel_id = await self._yt_data.get_channel_id(channel.handle)
+                channel_id = await self._yt_data.get_channel_id(channel)
                 videos = await self._yt_data.get_recent_videos(channel_id, max_results=max_per_channel)
                 all_videos.extend(videos)
-                logger.debug("channel={} fetched={}", channel.handle, len(videos))
+                logger.debug("channel={} fetched={}", channel, len(videos))
             except YouTubeAPIError as exc:
-                logger.warning("channel={} error | {}", channel.handle, exc)
+                logger.warning("channel={} error | {}", channel, exc)
 
         if not all_videos:
             return []

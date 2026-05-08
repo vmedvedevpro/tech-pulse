@@ -4,7 +4,7 @@ from typing import Any
 from loguru import logger
 
 from techpulse.agent.tools.base import Tool, ToolResult
-from techpulse.persistence.repo_repository import RepoRepository
+from techpulse.persistence.repositories.protocols import RepoRepositoryProtocol
 
 _REPO_PARAM = {
     "type": "string",
@@ -26,7 +26,7 @@ class AddRepoTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: RepoRepository, user_id: int) -> None:
+    def __init__(self, repository: RepoRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -56,7 +56,7 @@ class ListReposTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: RepoRepository, user_id: int) -> None:
+    def __init__(self, repository: RepoRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
@@ -81,7 +81,7 @@ class RemoveRepoTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, repository: RepoRepository, user_id: int) -> None:
+    def __init__(self, repository: RepoRepositoryProtocol, user_id: int) -> None:
         self._repo = repository
         self._user_id = user_id
 
