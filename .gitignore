@@ -211,8 +211,6 @@ __marimo__/
 
 docs
 
-# UV
-uv.lock
 
 # Claude Code
 .claude
