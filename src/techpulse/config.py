@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     def _normalize_database_url(cls, v: str) -> str:
         if v.startswith("postgres://"):
             return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
 
