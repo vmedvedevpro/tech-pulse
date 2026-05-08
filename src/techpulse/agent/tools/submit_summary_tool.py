@@ -65,11 +65,12 @@ class SubmitSummaryTool(Tool):
         self.last_result: ContentSummary | None = None
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
-        self.last_result = ContentSummary(**tool_input)
+        result = ContentSummary(**tool_input)
+        self.last_result = result
         logger.info(
             "submit_summary | source_id={} title={!r} relevance={}/10",
-            self.last_result.source_id,
-            self.last_result.title,
-            self.last_result.relevance_score,
+            result.source_id,
+            result.title,
+            result.relevance_score,
         )
         return ToolResult(content="Summary captured.")

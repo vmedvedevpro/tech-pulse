@@ -49,25 +49,13 @@ class FakeInterestsRepository:
         return interest in self._interests.get(user_id, set())
 
 
-class FakeReleaseRepository:
+class FakeSeenItemsRepository:
     def __init__(self) -> None:
         self._seen: dict[int, set[str]] = {}
 
-    async def filter_unseen(self, user_id: int, release_ids: list[str]) -> list[str]:
+    async def filter_unseen(self, user_id: int, ids: list[str]) -> list[str]:
         seen = self._seen.get(user_id, set())
-        return [rid for rid in release_ids if rid not in seen]
+        return [i for i in ids if i not in seen]
 
-    async def mark_many_seen(self, user_id: int, release_ids: list[str]) -> None:
-        self._seen.setdefault(user_id, set()).update(release_ids)
-
-
-class FakeVideoRepository:
-    def __init__(self) -> None:
-        self._seen: dict[int, set[str]] = {}
-
-    async def filter_unseen(self, user_id: int, video_ids: list[str]) -> list[str]:
-        seen = self._seen.get(user_id, set())
-        return [vid for vid in video_ids if vid not in seen]
-
-    async def mark_many_seen(self, user_id: int, video_ids: list[str]) -> None:
-        self._seen.setdefault(user_id, set()).update(video_ids)
+    async def mark_many_seen(self, user_id: int, ids: list[str]) -> None:
+        self._seen.setdefault(user_id, set()).update(ids)

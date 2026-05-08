@@ -17,7 +17,10 @@ class AddChannelTool(Tool):
     description = (
         "Saves a YouTube channel to the user's subscription list. "
         "Use this when the user asks to add, track, follow, or subscribe to a channel. "
-        "Requires the channel handle (e.g. '@nickchapsas')."
+        "Requires the channel handle (e.g. '@nickchapsas'). "
+        "IMPORTANT: Only use handles explicitly provided by the user. "
+        "If the user mentions a channel by name but does not provide the handle, "
+        "ask for it — never guess or infer it."
     )
     input_schema = {
         "type": "object",

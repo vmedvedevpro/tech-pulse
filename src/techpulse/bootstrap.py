@@ -21,9 +21,8 @@ from techpulse.integrations.youtube.youtube_data_client import YouTubeDataClient
 from techpulse.persistence.repositories.protocols import (
     ChannelRepositoryProtocol,
     InterestsRepositoryProtocol,
-    ReleaseRepositoryProtocol,
     RepoRepositoryProtocol,
-    VideoRepositoryProtocol,
+    SeenItemsRepositoryProtocol,
 )
 from techpulse.workers.digest_worker import DigestWorker
 from techpulse.workers.github_worker import GitHubWorker
@@ -32,10 +31,10 @@ from techpulse.workers.github_worker import GitHubWorker
 def create_agent(
         user_id: int,
         channel_repository: ChannelRepositoryProtocol,
-        video_repository: VideoRepositoryProtocol,
+        video_repository: SeenItemsRepositoryProtocol,
         interests_repository: InterestsRepositoryProtocol,
         repo_repository: RepoRepositoryProtocol,
-        release_repository: ReleaseRepositoryProtocol,
+        release_repository: SeenItemsRepositoryProtocol,
 ) -> Agent:
     registry = ToolRegistry()
 

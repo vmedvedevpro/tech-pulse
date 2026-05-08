@@ -145,7 +145,9 @@ class BotApp:
                 with suppress(asyncio.CancelledError):
                     await typing_task
 
-            await update.effective_message.reply_text(final, parse_mode="HTML")
+            message = update.effective_message
+            assert message is not None
+            await message.reply_text(final, parse_mode="HTML")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
@@ -153,7 +155,7 @@ class BotApp:
 
         user = update.effective_user
         user_id = user.id if user else None
-        username = user.username if user else "?"
+        username = (user.username or "?") if user else "?"
 
         if user_id is None:
             logger.warning("message without user_id, skipping")
@@ -161,13 +163,16 @@ class BotApp:
 
         logger.info("incoming message | user_id={} len={}", user_id, len(update.message.text))
         await self._stream_agent_response(
-            user_id, username, update.effective_chat.id, update.message.text, update
+            user_id, username, update.message.chat_id, update.message.text, update
         )
 
     async def handle_check(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        chat = update.effective_chat
+        assert chat is not None
+
         user = update.effective_user
         user_id = user.id if user else None
-        username = user.username if user else "?"
+        username = (user.username or "?") if user else "?"
 
         if user_id is None:
             logger.warning("check command without user_id, skipping")
@@ -175,7 +180,7 @@ class BotApp:
 
         logger.info("check command | user_id={}", user_id)
         await self._stream_agent_response(
-            user_id, username, update.effective_chat.id, _CHECK_TRIGGER, update
+            user_id, username, chat.id, _CHECK_TRIGGER, update
         )
 
 
