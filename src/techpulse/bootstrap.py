@@ -1,11 +1,14 @@
 import asyncio
+import atexit
+import base64
+import os
+import tempfile
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from telegram import Bot
 from telegram.ext import Application, BaseHandler
-from youtube_transcript_api import YouTubeTranscriptApi
 
 from techpulse.agent.core.agent import Agent
 from techpulse.agent.core.tool_registry import ToolRegistry
@@ -70,10 +73,21 @@ class Repositories:
         )
 
 
-def create_agent(user_id: int, repos: Repositories, settings: Settings) -> Agent:
+def _resolve_cookie_file(settings: Settings) -> str | None:
+    if not settings.yt_cookies_b64:
+        return None
+    data = base64.b64decode(settings.yt_cookies_b64)
+    f = tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='wb')
+    f.write(data)
+    f.close()
+    atexit.register(os.unlink, f.name)
+    return f.name
+
+
+def create_agent(user_id: int, repos: Repositories, settings: Settings, cookie_file: str | None = None) -> Agent:
     registry = ToolRegistry()
 
-    yt_transcript_client = YouTubeTranscriptClient(YouTubeTranscriptApi(), oembed_url=settings.youtube_oembed_url)
+    yt_transcript_client = YouTubeTranscriptClient(cookie_file=cookie_file)
     registry.register(FetchVideoMetadataTool(yt_transcript_client))
     registry.register(ListTranscriptsTool(yt_transcript_client))
     registry.register(YoutubeTranscriptTool(yt_transcript_client))
@@ -154,8 +168,10 @@ def _make_user_context_loader(
 
 
 def create_agent_factory(repos: Repositories, settings: Settings) -> Callable[[int], Agent]:
+    cookie_file = _resolve_cookie_file(settings)
+
     def factory(user_id: int) -> Agent:
-        return create_agent(user_id, repos, settings)
+        return create_agent(user_id, repos, settings, cookie_file=cookie_file)
 
     return factory
 

@@ -3,6 +3,13 @@ from datetime import datetime
 
 
 @dataclass
+class SubtitleTrack:
+    language_code: str
+    language: str
+    is_generated: bool
+
+
+@dataclass
 class VideoMetadata:
     video_id: str
     title: str

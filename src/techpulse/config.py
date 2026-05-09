@@ -9,7 +9,6 @@ class Settings(BaseSettings):
     database_url: str
     youtube_api_key: str
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
-    youtube_oembed_url: str = "https://www.youtube.com/oembed"
     log_level: str
     github_token: str | None = None
     agent_ttl: float = 1800.0
@@ -19,6 +18,7 @@ class Settings(BaseSettings):
     weekly_digest_hour: int = 9
     digest_scheduler_interval: float = 60.0
 
+    yt_cookies_b64: str | None = None
     alembic_database_url: str | None = None
 
     model_config = {"env_file": ".env"}
