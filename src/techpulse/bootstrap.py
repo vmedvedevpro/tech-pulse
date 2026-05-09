@@ -92,9 +92,9 @@ def create_agent(user_id: int, repos: Repositories, settings: Settings, cookie_f
     registry = ToolRegistry()
 
     yt_transcript_client = YouTubeTranscriptClient(cookie_file=cookie_file)
-    registry.register(FetchVideoMetadataTool(yt_transcript_client))
+    registry.register(FetchVideoMetadataTool(yt_transcript_client, repos.video))
     registry.register(ListTranscriptsTool(yt_transcript_client))
-    registry.register(YoutubeTranscriptTool(yt_transcript_client))
+    registry.register(YoutubeTranscriptTool(yt_transcript_client, repos.video))
 
     yt_data_client = YouTubeDataClient(api_key=settings.youtube_api_key, base_url=settings.youtube_api_base_url)
     registry.register(ResolveChannelIdTool(yt_data_client))

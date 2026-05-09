@@ -1,11 +1,17 @@
 import json
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from techpulse.agent.tools.youtube_transcript_tools import FetchVideoMetadataTool
 from techpulse.integrations.youtube.exceptions import TranscriptError
 from techpulse.integrations.youtube.models import VideoMetadata
+
+
+def _miss_repo() -> AsyncMock:
+    repo = AsyncMock()
+    repo.get_metadata.return_value = None
+    return repo
 
 
 class TestFetchVideoMetadataTool:
@@ -16,7 +22,7 @@ class TestFetchVideoMetadataTool:
         client.fetch_video_metadata.return_value = VideoMetadata(
             video_id="abc123", title="My Video", channel="Cool Channel"
         )
-        tool = FetchVideoMetadataTool(client)
+        tool = FetchVideoMetadataTool(client, _miss_repo())
 
         # Act
         result = await tool.run({"video_id": "abc123"})
@@ -34,7 +40,7 @@ class TestFetchVideoMetadataTool:
         # Arrange
         client = MagicMock()
         client.fetch_video_metadata.return_value = VideoMetadata("x", "T", "C")
-        tool = FetchVideoMetadataTool(client)
+        tool = FetchVideoMetadataTool(client, _miss_repo())
 
         # Act
         await tool.run({"video_id": "xyz"})
@@ -47,7 +53,7 @@ class TestFetchVideoMetadataTool:
         # Arrange
         client = MagicMock()
         client.fetch_video_metadata.side_effect = TranscriptError("fetch failed")
-        tool = FetchVideoMetadataTool(client)
+        tool = FetchVideoMetadataTool(client, _miss_repo())
 
         # Act
         result = await tool.run({"video_id": "abc123"})

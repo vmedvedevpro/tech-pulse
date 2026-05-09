@@ -7,6 +7,7 @@ from loguru import logger
 from techpulse.agent.tools.base import Tool, ToolResult
 from techpulse.integrations.youtube.exceptions import TranscriptError
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
+from techpulse.persistence.repositories.protocols import VideoRepositoryProtocol
 
 _VIDEO_ID_PARAM = {
     "type": "string",
@@ -27,12 +28,25 @@ class FetchVideoMetadataTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, client: YouTubeTranscriptClient) -> None:
+    def __init__(
+            self,
+            client: YouTubeTranscriptClient,
+            video_repo: VideoRepositoryProtocol,
+    ) -> None:
         self._client = client
+        self._video_repo = video_repo
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
         log = logger.bind(video_id=video_id)
+
+        cached = await self._video_repo.get_metadata(video_id)
+        if cached is not None:
+            title, channel = cached
+            log.debug("metadata cache hit | title={!r} channel={!r}", title, channel)
+            payload = {"video_id": video_id, "title": title, "channel": channel}
+            return ToolResult(content=json.dumps(payload, ensure_ascii=False))
+
         log.debug("fetching metadata")
         try:
             meta = await asyncio.to_thread(self._client.fetch_video_metadata, video_id)
@@ -40,6 +54,11 @@ class FetchVideoMetadataTool(Tool):
             log.warning("metadata error | {}", exc)
             return ToolResult(content=str(exc), is_error=True)
         log.debug("title={!r} channel={!r}", meta.title, meta.channel)
+        await self._video_repo.upsert_metadata(
+            video_id=meta.video_id,
+            title=meta.title,
+            channel_title=meta.channel,
+        )
         payload = {"video_id": meta.video_id, "title": meta.title, "channel": meta.channel}
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
@@ -111,15 +130,32 @@ class YoutubeTranscriptTool(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, client: YouTubeTranscriptClient) -> None:
+    def __init__(
+            self,
+            client: YouTubeTranscriptClient,
+            video_repo: VideoRepositoryProtocol,
+    ) -> None:
         self._client = client
+        self._video_repo = video_repo
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
         language_code: str = tool_input["language_code"]
         log = logger.bind(video_id=video_id, language=language_code)
-        log.debug("fetching transcript")
 
+        cached = await self._video_repo.get_transcript(video_id)
+        if cached is not None and cached[1] == language_code:
+            text, lang = cached
+            log.debug("transcript cache hit | text_len={}", len(text))
+            payload = {
+                "video_id": video_id,
+                "language_code": lang,
+                "duration_seconds": None,
+                "text": text,
+            }
+            return ToolResult(content=json.dumps(payload, ensure_ascii=False))
+
+        log.debug("fetching transcript")
         try:
             transcript = await asyncio.to_thread(self._client.fetch, video_id, language=language_code)
         except TranscriptError as exc:
@@ -130,6 +166,11 @@ class YoutubeTranscriptTool(Tool):
             "duration={}s text_len={}",
             round(transcript.duration),
             len(transcript.text),
+        )
+        await self._video_repo.set_transcript(
+            video_id=transcript.video_id,
+            transcript=transcript.text,
+            language=transcript.language_code,
         )
         payload = {
             "video_id": transcript.video_id,

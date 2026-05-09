@@ -1,11 +1,17 @@
 import json
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from techpulse.agent.tools.youtube_transcript_tools import YoutubeTranscriptTool
 from techpulse.integrations.youtube.exceptions import TranscriptError
 from techpulse.integrations.youtube.models import Transcript
+
+
+def _miss_repo() -> AsyncMock:
+    repo = AsyncMock()
+    repo.get_transcript.return_value = None
+    return repo
 
 
 class TestYoutubeTranscriptTool:
@@ -16,7 +22,7 @@ class TestYoutubeTranscriptTool:
         client.fetch.return_value = Transcript(
             video_id="abc123", text="Hello world", language_code="en", duration=42.7
         )
-        tool = YoutubeTranscriptTool(client)
+        tool = YoutubeTranscriptTool(client, _miss_repo())
 
         # Act
         result = await tool.run({"video_id": "abc123", "language_code": "en"})
@@ -34,7 +40,7 @@ class TestYoutubeTranscriptTool:
         # Arrange
         client = MagicMock()
         client.fetch.return_value = Transcript("v", "t", "en", duration=99.4)
-        tool = YoutubeTranscriptTool(client)
+        tool = YoutubeTranscriptTool(client, _miss_repo())
 
         # Act
         result = await tool.run({"video_id": "v", "language_code": "en"})
@@ -47,7 +53,7 @@ class TestYoutubeTranscriptTool:
         # Arrange
         client = MagicMock()
         client.fetch.return_value = Transcript("v", "t", "ru", duration=10.0)
-        tool = YoutubeTranscriptTool(client)
+        tool = YoutubeTranscriptTool(client, _miss_repo())
 
         # Act
         await tool.run({"video_id": "v", "language_code": "ru"})
@@ -60,7 +66,7 @@ class TestYoutubeTranscriptTool:
         # Arrange
         client = MagicMock()
         client.fetch.side_effect = TranscriptError("no transcript available")
-        tool = YoutubeTranscriptTool(client)
+        tool = YoutubeTranscriptTool(client, _miss_repo())
 
         # Act
         result = await tool.run({"video_id": "abc123", "language_code": "en"})

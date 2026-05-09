@@ -38,6 +38,14 @@ class VideoRepository:
             )
             await session.execute(stmt)
 
+    async def get_metadata(self, video_id: str) -> tuple[str, str] | None:
+        async with self._factory.begin() as session:
+            stmt = select(Video.title, Video.channel_title).where(Video.video_id == video_id)
+            row = (await session.execute(stmt)).one_or_none()
+            if row is None or row.title is None or row.channel_title is None:
+                return None
+            return row.title, row.channel_title
+
     async def get_transcript(self, video_id: str) -> tuple[str, str] | None:
         async with self._factory.begin() as session:
             stmt = select(Video.transcript, Video.transcript_language).where(
