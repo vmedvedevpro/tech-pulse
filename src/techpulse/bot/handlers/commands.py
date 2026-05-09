@@ -2,12 +2,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from techpulse.bot.emoji import tg_emoji
+from techpulse.bot.localizer import Localizer
 
 _START_TEXT = (
     f"{tg_emoji('logo')} Hi! I'm <b>TechPulse</b> — your personal tech radar.\n\n"
     "I watch YouTube channels and GitHub repos, filter what's worth your time "
     "against your interests, and deliver an AI-curated weekly digest.\n\n"
-    f"{tg_emoji('help')} Type /help to see everything I can do."
+    f"{tg_emoji('heart_pink')} Type /help to see everything I can do."
 )
 
 _HELP_TEXT = (
@@ -35,15 +36,25 @@ _HELP_TEXT = (
 )
 
 
-class StartHandler:
+class StaticReplyHandler:
+    def __init__(self, localizer: Localizer, text: str) -> None:
+        self._localizer = localizer
+        self._text = text
+
     async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         assert message is not None
-        await message.reply_text(_START_TEXT, parse_mode="HTML")
+        user = update.effective_user
+        lang = user.language_code if user else None
+        localized = await self._localizer.localize(self._text, lang)
+        await message.reply_text(localized, parse_mode="HTML")
 
 
-class HelpHandler:
-    async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        message = update.effective_message
-        assert message is not None
-        await message.reply_text(_HELP_TEXT, parse_mode="HTML")
+class StartHandler(StaticReplyHandler):
+    def __init__(self, localizer: Localizer) -> None:
+        super().__init__(localizer, _START_TEXT)
+
+
+class HelpHandler(StaticReplyHandler):
+    def __init__(self, localizer: Localizer) -> None:
+        super().__init__(localizer, _HELP_TEXT)

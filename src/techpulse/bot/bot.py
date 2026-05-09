@@ -5,6 +5,7 @@ from techpulse.bootstrap import Repositories, build_application, create_agent_fa
 from techpulse.bot.agent_registry import AgentRegistry
 from techpulse.bot.handlers.chat import ChatHandler
 from techpulse.bot.handlers.commands import HelpHandler, StartHandler
+from techpulse.bot.localizer import Localizer
 from techpulse.config import settings
 from techpulse.logging import setup_logging
 from techpulse.persistence.database import create_session_factory
@@ -18,9 +19,10 @@ def main() -> None:
     agent_factory = create_agent_factory(repos, settings)
     registry = AgentRegistry(agent_factory)
 
+    localizer = Localizer(api_key=settings.anthropic_api_key, model=settings.localizer_model)
     chat = ChatHandler(registry)
-    start = StartHandler()
-    help_ = HelpHandler()
+    start = StartHandler(localizer)
+    help_ = HelpHandler(localizer)
     handlers = [
         CommandHandler("start", start.handle),
         CommandHandler("help", help_.handle),
