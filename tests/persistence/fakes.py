@@ -87,3 +87,47 @@ class FakeSeenItemsRepository:
 
     async def mark_many_seen(self, user_id: int, ids: list[str]) -> None:
         self._seen.setdefault(user_id, set()).update(ids)
+
+
+class FakeVideoRepository:
+    def __init__(self) -> None:
+        self._videos: dict[str, dict] = {}
+
+    async def upsert_metadata(
+            self,
+            video_id: str,
+            title: str | None = None,
+            channel_id: str | None = None,
+            channel_title: str | None = None,
+            published_at: datetime | None = None,
+    ) -> None:
+        v = self._videos.setdefault(video_id, {})
+        v["title"] = title
+        v["channel_id"] = channel_id
+        v["channel_title"] = channel_title
+        v["published_at"] = published_at
+
+    async def get_metadata(self, video_id: str) -> tuple[str, str] | None:
+        v = self._videos.get(video_id)
+        if not v or v.get("title") is None or v.get("channel_title") is None:
+            return None
+        return v["title"], v["channel_title"]
+
+    async def get_transcript(self, video_id: str) -> tuple[str, str] | None:
+        v = self._videos.get(video_id)
+        if not v or v.get("transcript") is None:
+            return None
+        return v["transcript"], v["transcript_language"]
+
+    async def set_transcript(self, video_id: str, transcript: str, language: str) -> None:
+        v = self._videos.setdefault(video_id, {})
+        v["transcript"] = transcript
+        v["transcript_language"] = language
+
+    async def get_summary(self, video_id: str) -> str | None:
+        v = self._videos.get(video_id)
+        return v.get("summary") if v else None
+
+    async def set_summary(self, video_id: str, summary: str) -> None:
+        v = self._videos.setdefault(video_id, {})
+        v["summary"] = summary
