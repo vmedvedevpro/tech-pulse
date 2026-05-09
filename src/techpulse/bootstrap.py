@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from telegram import Bot
+from telegram import Bot, BotCommand
 from telegram.ext import Application, BaseHandler
 
 from techpulse.agent.core.agent import Agent
@@ -192,6 +192,12 @@ def build_application(
 
     async def _post_init(application: Application) -> None:
         nonlocal scheduler
+        await application.bot.set_my_commands(
+            [
+                BotCommand("start", "Greeting and quick intro"),
+                BotCommand("help", "Show full guide"),
+            ]
+        )
         await registry.start()
         scheduler = _build_scheduler(application.bot, repos.digest_subscription, agent_factory, settings)
         await scheduler.start()

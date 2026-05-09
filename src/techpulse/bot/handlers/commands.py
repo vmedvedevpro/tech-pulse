@@ -1,11 +1,60 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from techpulse.bot.emoji import tg_emoji
+from techpulse.bot.localizer import Localizer
 
-class StartHandler:
+_START_TEXT = (
+    f"{tg_emoji('logo')} Hi! I'm <b>TechPulse</b> — your personal tech radar.\n\n"
+    "I watch YouTube channels and GitHub repos, filter what's worth your time "
+    "against your interests, and deliver an AI-curated weekly digest.\n\n"
+    f"{tg_emoji('heart_pink')} Type /help to see everything I can do."
+)
+
+_HELP_TEXT = (
+    f"{tg_emoji('logo')} <b>TechPulse — guide</b>\n"
+    "Talk to me naturally — I understand intent, not strict commands.\n\n"
+    f"{tg_emoji('youtube')} <b>YouTube</b>\n"
+    "• Send a video link — I'll pull the transcript and summarize.\n"
+    "• <i>«Subscribe to channel @veritasium»</i> — I'll watch their uploads.\n"
+    "• <i>«List my channels»</i> · <i>«Remove channel ...»</i>\n\n"
+    f"{tg_emoji('github')} <b>GitHub</b>\n"
+    "• Send a repo (e.g. <code>microsoft/vscode</code>) — I'll show info and the latest release.\n"
+    "• <i>«Watch repo nodejs/node»</i> — track new releases.\n"
+    "• <i>«List my repos»</i> · <i>«Remove repo ...»</i>\n\n"
+    f"{tg_emoji('interests')} <b>Interests</b>\n"
+    "• <i>«My interests: Rust, LLM agents, distributed systems»</i>\n"
+    "• <i>«List interests»</i> · <i>«Remove interest ...»</i>\n"
+    "Used to rank relevance in your digest.\n\n"
+    f"{tg_emoji('digest')} <b>Weekly digest</b>\n"
+    "• <i>«Enable weekly digest»</i> — fresh videos and releases delivered automatically.\n"
+    "• <i>«Disable digest»</i> · <i>«Digest status»</i>\n"
+    "• <i>«What's new?»</i> — on-demand digest right now.\n\n"
+    f"{tg_emoji('ai')} <b>How I work</b>\n"
+    "I use Claude to analyze content and rank it against your interests. "
+    f"{tg_emoji('success')} marks significant releases; minor ones get a one-line note."
+)
+
+
+class StaticReplyHandler:
+    def __init__(self, localizer: Localizer, text: str) -> None:
+        self._localizer = localizer
+        self._text = text
+
     async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         assert message is not None
-        await message.reply_text(
-            "Hi! I'm TechPulse. Stay on top of your tech world. Track YouTube channels and GitHub repos, set your interests, and get AI-powered digests — right in Telegram."
-        )
+        user = update.effective_user
+        lang = user.language_code if user else None
+        localized = await self._localizer.localize(self._text, lang)
+        await message.reply_text(localized, parse_mode="HTML")
+
+
+class StartHandler(StaticReplyHandler):
+    def __init__(self, localizer: Localizer) -> None:
+        super().__init__(localizer, _START_TEXT)
+
+
+class HelpHandler(StaticReplyHandler):
+    def __init__(self, localizer: Localizer) -> None:
+        super().__init__(localizer, _HELP_TEXT)

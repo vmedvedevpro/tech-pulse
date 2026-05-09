@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     anthropic_api_key: str
     anthropic_model: str
+    localizer_model: str = "claude-haiku-4-5-20251001"
     telegram_bot_token: str
     database_url: str
     youtube_api_key: str
