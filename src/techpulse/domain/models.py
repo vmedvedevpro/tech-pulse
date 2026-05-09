@@ -4,7 +4,7 @@ from techpulse.domain.digest_subscription import DigestSubscription
 from techpulse.domain.interest import UserInterest
 from techpulse.domain.release import SeenRelease
 from techpulse.domain.repo import UserRepo
-from techpulse.domain.video import SeenVideo
+from techpulse.domain.video import SeenVideo, Video
 
 __all__ = [
     "Base",
@@ -14,4 +14,5 @@ __all__ = [
     "SeenRelease",
     "UserRepo",
     "SeenVideo",
+    "Video",
 ]

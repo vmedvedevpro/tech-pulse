@@ -20,6 +20,8 @@ interest topics — delivers structured summaries on demand or automatically on 
 - **Weekly digest scheduler** — subscribe to automatic weekly delivery; the bot runs a background cron loop and sends
   digests to all subscribers at a configured day and time
 - **Deduplication** — seen videos and releases are stored in PostgreSQL and excluded from future digests
+- **Video cache** — video metadata and transcripts are persisted as a standalone `videos` entity; subsequent digests
+  (including for other users subscribed to the same channel) reuse cached transcripts instead of hitting yt-dlp
 - **On-demand repo info** — ask the agent about any GitHub repo: description, stars, language, topics
 - **Per-user agents with conversation history** — each Telegram user gets a dedicated agent instance that retains full
   message history across turns
