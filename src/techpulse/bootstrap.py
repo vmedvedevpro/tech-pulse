@@ -42,9 +42,11 @@ from techpulse.persistence.repositories.protocols import (
     InterestsRepositoryProtocol,
     RepoRepositoryProtocol,
     SeenItemsRepositoryProtocol,
+    VideoRepositoryProtocol,
 )
 from techpulse.persistence.repositories.release_repository import ReleaseRepository
 from techpulse.persistence.repositories.repo_repository import RepoRepository
+from techpulse.persistence.repositories.seen_video_repository import SeenVideoRepository
 from techpulse.persistence.repositories.user_interests_repository import InterestsRepository
 from techpulse.persistence.repositories.video_repository import VideoRepository
 from techpulse.workers.digest_scheduler import DigestScheduler
@@ -55,7 +57,8 @@ from techpulse.workers.github_worker import GitHubWorker
 @dataclass(frozen=True, slots=True)
 class Repositories:
     channel: ChannelRepositoryProtocol
-    video: SeenItemsRepositoryProtocol
+    seen_video: SeenItemsRepositoryProtocol
+    video: VideoRepositoryProtocol
     interests: InterestsRepositoryProtocol
     repo: RepoRepositoryProtocol
     release: SeenItemsRepositoryProtocol
@@ -65,6 +68,7 @@ class Repositories:
     def from_session_factory(cls, sf: async_sessionmaker[AsyncSession]) -> "Repositories":
         return cls(
             channel=ChannelRepository(sf),
+            seen_video=SeenVideoRepository(sf),
             video=VideoRepository(sf),
             interests=InterestsRepository(sf),
             repo=RepoRepository(sf),
@@ -116,6 +120,7 @@ def create_agent(user_id: int, repos: Repositories, settings: Settings, cookie_f
         yt_data=yt_data_client,
         yt_transcript=yt_transcript_client,
         channel_repo=repos.channel,
+        seen_video_repo=repos.seen_video,
         video_repo=repos.video,
         user_id=user_id,
     )

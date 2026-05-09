@@ -8,7 +8,11 @@ from techpulse.integrations.youtube.exceptions import TranscriptError, YouTubeAP
 from techpulse.integrations.youtube.models import VideoInfo
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 from techpulse.integrations.youtube.youtube_data_client import YouTubeDataClient
-from techpulse.persistence.repositories.protocols import ChannelRepositoryProtocol, SeenItemsRepositoryProtocol
+from techpulse.persistence.repositories.protocols import (
+    ChannelRepositoryProtocol,
+    SeenItemsRepositoryProtocol,
+    VideoRepositoryProtocol,
+)
 
 
 @dataclass
@@ -27,12 +31,14 @@ class DigestWorker:
             yt_data: YouTubeDataClient,
             yt_transcript: YouTubeTranscriptClient,
             channel_repo: ChannelRepositoryProtocol,
-            video_repo: SeenItemsRepositoryProtocol,
+            seen_video_repo: SeenItemsRepositoryProtocol,
+            video_repo: VideoRepositoryProtocol,
             user_id: int,
     ) -> None:
         self._yt_data = yt_data
         self._yt_transcript = yt_transcript
         self._channel_repo = channel_repo
+        self._seen_video_repo = seen_video_repo
         self._video_repo = video_repo
         self._user_id = user_id
 
@@ -56,7 +62,7 @@ class DigestWorker:
             return []
 
         video_ids = [v.video_id for v in all_videos]
-        unseen_ids = set(await self._video_repo.filter_unseen(self._user_id, video_ids))
+        unseen_ids = set(await self._seen_video_repo.filter_unseen(self._user_id, video_ids))
         new_videos = [v for v in all_videos if v.video_id in unseen_ids]
 
         logger.info(
@@ -69,7 +75,14 @@ class DigestWorker:
 
         items: list[VideoDigestItem] = []
         for video in new_videos:
-            transcript_text, lang = await self._fetch_best_transcript(video.video_id)
+            await self._video_repo.upsert_metadata(
+                video_id=video.video_id,
+                title=video.title,
+                channel_id=video.channel_id,
+                channel_title=video.channel_title,
+                published_at=video.published_at,
+            )
+            transcript_text, lang = await self._get_or_fetch_transcript(video.video_id)
             items.append(VideoDigestItem(
                 video_id=video.video_id,
                 title=video.title,
@@ -79,8 +92,19 @@ class DigestWorker:
                 transcript_language=lang,
             ))
 
-        await self._video_repo.mark_many_seen(self._user_id, [v.video_id for v in new_videos])
+        await self._seen_video_repo.mark_many_seen(self._user_id, [v.video_id for v in new_videos])
         return items
+
+    async def _get_or_fetch_transcript(self, video_id: str) -> tuple[str | None, str | None]:
+        cached = await self._video_repo.get_transcript(video_id)
+        if cached is not None:
+            logger.debug("transcript cache hit | video_id={}", video_id)
+            return cached
+
+        text, lang = await self._fetch_best_transcript(video_id)
+        if text is not None and lang is not None:
+            await self._video_repo.set_transcript(video_id, text, lang)
+        return text, lang
 
     async def _fetch_best_transcript(self, video_id: str) -> tuple[str | None, str | None]:
         try:
