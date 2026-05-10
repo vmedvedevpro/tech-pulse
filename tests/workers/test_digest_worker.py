@@ -32,6 +32,7 @@ async def _make_worker(
         transcript_lang: str = "en",
         seen_video_repo: FakeSeenItemsRepository | None = None,
         video_repo: FakeVideoRepository | None = None,
+        summary_text: str | None = "fake summary",
 ) -> tuple[DigestWorker, AsyncMock, MagicMock, FakeSeenItemsRepository, FakeVideoRepository]:
     yt_data = AsyncMock()
     yt_transcript = MagicMock()
@@ -64,12 +65,16 @@ async def _make_worker(
     seen_video_repo = seen_video_repo or FakeSeenItemsRepository()
     video_repo = video_repo or FakeVideoRepository()
 
+    summarizer = AsyncMock()
+    summarizer.get_or_create.return_value = summary_text
+
     worker = DigestWorker(
         yt_data=yt_data,
         yt_transcript=yt_transcript,
         channel_repo=channel_repo,
         seen_video_repo=seen_video_repo,
         video_repo=video_repo,
+        summarizer=summarizer,
         user_id=user_id,
     )
     return worker, yt_data, yt_transcript, seen_video_repo, video_repo

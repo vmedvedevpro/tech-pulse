@@ -54,6 +54,7 @@ from techpulse.persistence.repositories.video_repository import VideoRepository
 from techpulse.workers.digest_scheduler import DigestScheduler
 from techpulse.workers.digest_worker import DigestWorker
 from techpulse.workers.github_worker import GitHubWorker
+from techpulse.workers.video_summarizer import VideoSummarizer
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,10 +100,16 @@ def create_agent(
 ) -> Agent:
     registry = ToolRegistry()
 
+    summarizer = VideoSummarizer(
+        client=anthropic_client,
+        model=settings.anthropic_model,
+        video_repo=repos.video,
+    )
+
     yt_transcript_client = YouTubeTranscriptClient(cookie_file=cookie_file)
     registry.register(FetchVideoMetadataTool(yt_transcript_client, repos.video))
     registry.register(ListTranscriptsTool(yt_transcript_client))
-    registry.register(YoutubeTranscriptTool(yt_transcript_client, repos.video))
+    registry.register(YoutubeTranscriptTool(yt_transcript_client, repos.video, summarizer))
 
     yt_data_client = YouTubeDataClient(api_key=settings.youtube_api_key, base_url=settings.youtube_api_base_url)
     registry.register(ResolveChannelIdTool(yt_data_client))
@@ -130,6 +137,7 @@ def create_agent(
         channel_repo=repos.channel,
         seen_video_repo=repos.seen_video,
         video_repo=repos.video,
+        summarizer=summarizer,
         user_id=user_id,
     )
     gh_worker = GitHubWorker(

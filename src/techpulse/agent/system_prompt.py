@@ -51,8 +51,9 @@ analyze it automatically without waiting to be asked:
 2. Call fetch_video_metadata to get the title and channel name.
 3. Call list_transcripts to see available transcripts.
 4. Call fetch_transcript — prefer manual (is_generated=false) over auto-generated. \
-   Prefer English if available; otherwise use the best option.
-5. Write a structured summary directly in your response using this Telegram HTML format:
+   Prefer English if available; otherwise use the best option. \
+   The tool returns a pre-generated `summary` in its payload — use it directly as the TL;DR, do NOT re-process the transcript.
+5. Write a structured response using this Telegram HTML format:
 
 {tg_emoji('youtube')} <a href="{{url}}"><b>{{title}}</b></a> — {{channel}}
 <i>{{2-3 sentence TL;DR}}</i>
