@@ -1,0 +1,1464 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Tech Pulse — Telegram bot for personal tech digests</title>
+    <meta name="description"
+          content="Tech Pulse — Telegram bot powered by Claude. Tracks YouTube channels, GitHub repos, and personal interest topics. Delivers structured weekly digests."/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
+    <style>
+        :root {
+            --g-bg: #040806;
+            --g-surf: #0a1410;
+            --g-raised: #0f1d18;
+            --g-accent: #39ff14;
+            --g-alt: #a3ff7a;
+            --g-glow: rgba(57, 255, 20, .7);
+            --g-line: rgba(57, 255, 20, .18);
+            --p-bg: #08040d;
+            --p-surf: #120a1c;
+            --p-raised: #1c1030;
+            --p-accent: #ff3ad1;
+            --p-alt: #ff8eea;
+            --p-glow: rgba(255, 58, 209, .7);
+            --p-line: rgba(255, 58, 209, .22);
+            --fg: #d6f5d6;
+            --muted: #5a7e62;
+            --mono: 'JetBrains Mono', monospace;
+            --display: 'VT323', monospace;
+            --press: 'Press Start 2P', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        html, body {
+            background: #020403;
+            color: var(--fg);
+            font-family: var(--mono);
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        body {
+            background: radial-gradient(ellipse at 25% 10%, rgba(57, 255, 20, .06), transparent 55%),
+            radial-gradient(ellipse at 80% 90%, rgba(255, 58, 209, .05), transparent 55%),
+            #020403;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 1px, transparent 1px 3px);
+            pointer-events: none;
+            z-index: 9000;
+            opacity: .55;
+            mix-blend-mode: multiply
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .7) 100%);
+            pointer-events: none;
+            z-index: 9001
+        }
+
+        .flicker {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: rgba(255, 255, 255, .012);
+            z-index: 9002;
+            animation: flicker 540ms infinite
+        }
+
+        @keyframes flicker {
+            0%, 100% {
+                opacity: .04
+            }
+            50% {
+                opacity: .08
+            }
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            display: block
+        }
+
+        .shell {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 28px 28px 96px;
+            position: relative;
+            z-index: 1
+        }
+
+        /* nav */
+        nav.top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0 24px;
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--muted);
+            flex-wrap: wrap;
+            gap: 14px
+        }
+
+        nav.top .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px
+        }
+
+        nav.top .logo .mk {
+            font-family: var(--display);
+            font-size: 22px;
+            letter-spacing: 2px;
+            color: var(--g-accent);
+            text-shadow: 0 0 10px var(--g-glow)
+        }
+
+        nav.top .links {
+            display: flex;
+            gap: 22px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+        nav.top .links a {
+            color: var(--muted);
+            transition: color .15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        nav.top .links a:hover {
+            color: var(--g-accent)
+        }
+
+        nav.top .links a.cta {
+            color: var(--g-accent);
+            text-shadow: 0 0 6px var(--g-glow)
+        }
+
+        nav.top .links a.cta:hover {
+            color: #fff
+        }
+
+        /* boot terminal line */
+        .boot {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            padding: 6px 10px;
+            border: 1px solid var(--g-line);
+            background: rgba(10, 20, 16, .5);
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap
+        }
+
+        .boot .ok {
+            color: var(--g-accent);
+            text-shadow: 0 0 6px var(--g-glow)
+        }
+
+        .boot .warn {
+            color: var(--p-accent);
+            text-shadow: 0 0 6px var(--p-glow)
+        }
+
+        .boot .cur {
+            display: inline-block;
+            width: 8px;
+            height: 13px;
+            background: var(--g-accent);
+            box-shadow: 0 0 8px var(--g-glow);
+            animation: blink 900ms steps(2) infinite;
+            vertical-align: -2px;
+            margin-left: 4px
+        }
+
+        @keyframes blink {
+            0%, 49% {
+                opacity: 1
+            }
+            50%, 100% {
+                opacity: 0
+            }
+        }
+
+        /* hero */
+        .hero {
+            position: relative;
+            display: grid;
+            grid-template-columns:1.3fr 1fr;
+            gap: 36px;
+            align-items: center;
+            padding: 44px 0 56px;
+            border-top: 1px solid var(--g-line);
+            border-bottom: 1px solid var(--g-line)
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 80% 50%, rgba(255, 58, 209, .07), transparent 55%),
+            radial-gradient(ellipse at 20% 50%, rgba(57, 255, 20, .06), transparent 55%);
+            pointer-events: none
+        }
+
+        .hero h1 {
+            font-family: var(--display);
+            font-size: clamp(56px, 9vw, 108px);
+            line-height: .9;
+            letter-spacing: 3px;
+            color: var(--g-accent);
+            text-shadow: 0 0 22px var(--g-glow), 0 0 60px rgba(57, 255, 20, .25);
+            text-transform: uppercase;
+            margin-bottom: 8px
+        }
+
+        .hero h1 .pink {
+            color: var(--p-accent);
+            text-shadow: 0 0 22px var(--p-glow), 0 0 60px rgba(255, 58, 209, .25)
+        }
+
+        .hero .tag {
+            font-family: var(--press);
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: var(--g-alt);
+            margin-bottom: 22px;
+            opacity: .85;
+            line-height: 1.7
+        }
+
+        .hero p.lead {
+            font-family: var(--mono);
+            font-size: 15px;
+            line-height: 1.7;
+            color: #cfdfd0;
+            max-width: 520px;
+            margin-bottom: 28px
+        }
+
+        .hero .cta {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .btn {
+            font-family: var(--press);
+            font-size: 11px;
+            letter-spacing: 3px;
+            padding: 14px 22px;
+            background: transparent;
+            border: 1px solid;
+            cursor: pointer;
+            text-transform: uppercase;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all .15s
+        }
+
+        .btn.green {
+            color: var(--g-accent);
+            border-color: var(--g-accent)
+        }
+
+        .btn.green:hover {
+            background: rgba(57, 255, 20, .08);
+            box-shadow: 0 0 18px var(--g-glow)
+        }
+
+        .btn.ghost {
+            color: var(--muted);
+            border-color: rgba(160, 200, 170, .25)
+        }
+
+        .btn.ghost:hover {
+            color: var(--g-alt);
+            border-color: var(--g-alt)
+        }
+
+        .btn.pink {
+            color: var(--p-accent);
+            border-color: var(--p-accent)
+        }
+
+        .btn.pink:hover {
+            background: rgba(255, 58, 209, .08);
+            box-shadow: 0 0 18px var(--p-glow)
+        }
+
+        .hero-art {
+            position: relative;
+            height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center
+        }
+
+        .crt {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            background: var(--g-surf);
+            overflow: hidden;
+            box-shadow: 0 0 36px rgba(57, 255, 20, .12), inset 0 0 60px rgba(0, 0, 0, .7)
+        }
+
+        .crt::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 1px, transparent 1px 3px);
+            z-index: 5;
+            pointer-events: none;
+            opacity: .85
+        }
+
+        .crt::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, .7) 100%);
+            z-index: 6;
+            pointer-events: none
+        }
+
+        .crt canvas {
+            width: 300px;
+            height: 300px
+        }
+
+        .crt .corner {
+            position: absolute;
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: var(--g-alt);
+            opacity: .55;
+            z-index: 7;
+            padding: 8px 10px
+        }
+
+        .crt .corner.tl {
+            top: 0;
+            left: 0
+        }
+
+        .crt .corner.tr {
+            top: 0;
+            right: 0;
+            color: var(--p-alt)
+        }
+
+        .crt .corner.bl {
+            bottom: 0;
+            left: 0
+        }
+
+        .crt .corner.br {
+            bottom: 0;
+            right: 0
+        }
+
+        .crt .ecg-strip {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 54px;
+            height: 48px;
+            z-index: 4
+        }
+
+        .crt .ecg-strip canvas {
+            width: 100%;
+            height: 48px
+        }
+
+        .badges {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+            flex-wrap: wrap
+        }
+
+        .badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border: 1px solid;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .badge::before {
+            content: '■';
+            font-size: 6px
+        }
+
+        .badge.green {
+            color: var(--g-accent);
+            border-color: var(--g-line);
+            text-shadow: 0 0 6px var(--g-glow)
+        }
+
+        .badge.pink {
+            color: var(--p-accent);
+            border-color: var(--p-line);
+            text-shadow: 0 0 6px var(--p-glow)
+        }
+
+        /* sections */
+        section.s {
+            padding: 72px 0;
+            position: relative
+        }
+
+        section.s + section.s {
+            border-top: 1px solid var(--g-line)
+        }
+
+        .s-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 36px;
+            flex-wrap: wrap;
+            gap: 16px
+        }
+
+        .s-tag {
+            font-family: var(--press);
+            font-size: 11px;
+            letter-spacing: 3px;
+            padding: 6px 12px;
+            border: 1px solid;
+            text-transform: uppercase
+        }
+
+        .s-tag.green {
+            color: var(--g-accent);
+            border-color: var(--g-line);
+            text-shadow: 0 0 6px var(--g-glow)
+        }
+
+        .s-tag.pink {
+            color: var(--p-accent);
+            border-color: var(--p-line);
+            text-shadow: 0 0 6px var(--p-glow)
+        }
+
+        .s-title {
+            font-family: var(--display);
+            font-size: 56px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--fg);
+            line-height: 1
+        }
+
+        .s-title .accent {
+            color: var(--g-accent);
+            text-shadow: 0 0 14px var(--g-glow)
+        }
+
+        .s-title.pink .accent {
+            color: var(--p-accent);
+            text-shadow: 0 0 14px var(--p-glow)
+        }
+
+        .s-sub {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--muted);
+            max-width: 380px;
+            text-align: right;
+            line-height: 1.6
+        }
+
+        /* feature cards */
+        .cards {
+            display: grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap: 18px
+        }
+
+        .card {
+            position: relative;
+            padding: 22px;
+            background: rgba(10, 20, 16, .6);
+            border: 1px solid var(--g-line);
+            min-height: 260px;
+            display: flex;
+            flex-direction: column
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px);
+            pointer-events: none;
+            opacity: .5
+        }
+
+        .card .icon-slot {
+            width: 80px;
+            height: 80px;
+            background: #020706;
+            border: 1px solid var(--g-line);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 18px;
+            align-self: flex-start
+        }
+
+        .card .icon-slot::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .25) 0 1px, transparent 1px 3px);
+            z-index: 5;
+            pointer-events: none
+        }
+
+        .card h3 {
+            font-family: var(--display);
+            font-size: 32px;
+            letter-spacing: 2px;
+            color: var(--g-accent);
+            text-shadow: 0 0 8px var(--g-glow);
+            margin-bottom: 8px;
+            line-height: 1;
+            text-transform: uppercase
+        }
+
+        .card .num {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: var(--p-alt);
+            opacity: .5;
+            margin-bottom: 10px
+        }
+
+        .card p {
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.7;
+            color: #bfd0c0
+        }
+
+        .card p code {
+            background: rgba(57, 255, 20, .08);
+            color: var(--g-alt);
+            padding: 0 5px;
+            font-size: 12px
+        }
+
+        .card .meta {
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px dashed var(--g-line);
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--muted);
+            text-transform: uppercase
+        }
+
+        /* demo */
+        .demo-grid {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 24px;
+            align-items: start
+        }
+
+        .phone {
+            position: relative;
+            background: #000;
+            width: 100%;
+            max-width: 380px;
+            margin: 0 auto;
+            border: 1px solid #111;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(57, 255, 20, .06)
+        }
+
+        .phone-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: rgba(8, 14, 11, .85);
+            border-bottom: .5px solid var(--g-line);
+            position: relative;
+            z-index: 2
+        }
+
+        .phone-bar .av {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--g-surf);
+            position: relative
+        }
+
+        .phone-bar .av canvas {
+            width: 36px;
+            height: 36px
+        }
+
+        .phone-bar .name {
+            font-family: -apple-system, system-ui;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--fg)
+        }
+
+        .phone-bar .status {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted)
+        }
+
+        .phone-bar .status .dot {
+            color: var(--g-accent)
+        }
+
+        .chat {
+            position: relative;
+            height: 520px;
+            padding: 14px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: var(--g-bg);
+            overflow: hidden
+        }
+
+        .chat-bg {
+            position: absolute;
+            inset: 0;
+            opacity: .4;
+            pointer-events: none
+        }
+
+        .chat-bg canvas {
+            width: 100%;
+            height: 100%
+        }
+
+        .bubble {
+            position: relative;
+            z-index: 2;
+            max-width: 80%;
+            padding: 9px 13px;
+            font-family: -apple-system, system-ui;
+            font-size: 14px;
+            line-height: 1.45;
+            clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%, 0 6px)
+        }
+
+        .bubble.in {
+            align-self: flex-start;
+            background: rgba(20, 30, 24, .95);
+            border: 1px solid var(--g-line);
+            color: var(--fg)
+        }
+
+        .bubble.out {
+            align-self: flex-end;
+            background: var(--g-accent);
+            color: var(--g-bg);
+            font-weight: 600;
+            font-family: var(--mono);
+            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+            box-shadow: 0 0 14px var(--g-glow)
+        }
+
+        .bubble .head {
+            font-family: var(--display);
+            font-size: 15px;
+            color: var(--g-accent);
+            text-shadow: 0 0 6px var(--g-glow);
+            letter-spacing: 2px;
+            margin-bottom: 4px
+        }
+
+        .bubble code {
+            font-family: var(--mono);
+            font-size: 12px;
+            background: rgba(255, 255, 255, .08);
+            padding: 0 4px
+        }
+
+        .bubble .meta {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--g-accent);
+            margin-top: 6px;
+            letter-spacing: 1px
+        }
+
+        .bubble.alert {
+            background: rgba(28, 16, 40, .95);
+            border: 1px solid var(--p-line);
+            color: var(--p-alt)
+        }
+
+        .bubble.alert .head {
+            color: var(--p-accent);
+            text-shadow: 0 0 6px var(--p-glow)
+        }
+
+        .divtoday {
+            align-self: center;
+            padding: 3px 10px;
+            background: rgba(0, 0, 0, .55);
+            font-family: var(--display);
+            font-size: 14px;
+            color: var(--g-accent);
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+            text-shadow: 0 0 6px var(--g-glow);
+            position: relative;
+            z-index: 2
+        }
+
+        .demo-side h4 {
+            font-family: var(--display);
+            font-size: 30px;
+            letter-spacing: 2px;
+            color: var(--g-accent);
+            text-shadow: 0 0 10px var(--g-glow);
+            margin-bottom: 12px;
+            text-transform: uppercase
+        }
+
+        .demo-side ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin: 18px 0 26px
+        }
+
+        .demo-side li {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.6;
+            color: #bfd0c0
+        }
+
+        .demo-side li::before {
+            content: '>';
+            color: var(--g-accent);
+            font-family: var(--display);
+            font-size: 18px;
+            line-height: 1;
+            text-shadow: 0 0 4px var(--g-glow);
+            flex-shrink: 0;
+            margin-top: -2px
+        }
+
+        .demo-side li b {
+            color: var(--fg);
+            font-weight: 600
+        }
+
+        .demo-side li code {
+            font-family: var(--mono);
+            background: rgba(57, 255, 20, .08);
+            color: var(--g-alt);
+            padding: 0 5px;
+            font-size: 12px
+        }
+
+        .demo-side .quote {
+            padding: 14px 16px;
+            border-left: 2px solid var(--p-accent);
+            background: rgba(28, 16, 40, .4);
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--p-alt);
+            line-height: 1.7
+        }
+
+        .demo-side .quote b {
+            color: var(--p-accent);
+            display: block;
+            margin-bottom: 6px
+        }
+
+        /* commands */
+        .cmds {
+            background: rgba(10, 20, 16, .55);
+            border: 1px solid var(--g-line);
+            padding: 0;
+            font-family: var(--mono);
+            font-size: 14px;
+            position: relative
+        }
+
+        .cmds::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px);
+            pointer-events: none;
+            opacity: .4
+        }
+
+        .cmds .row {
+            display: grid;
+            grid-template-columns:160px 1fr;
+            gap: 24px;
+            padding: 14px 22px;
+            border-bottom: 1px solid var(--g-line);
+            align-items: baseline;
+            position: relative;
+            z-index: 1
+        }
+
+        .cmds .row:last-child {
+            border-bottom: 0
+        }
+
+        .cmds .row .k {
+            color: var(--g-accent);
+            text-shadow: 0 0 6px var(--g-glow);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .cmds .row .k::before {
+            content: '>';
+            color: var(--p-accent);
+            text-shadow: 0 0 4px var(--p-glow);
+            font-family: var(--display);
+            font-size: 18px
+        }
+
+        .cmds .row .v {
+            color: #bfd0c0;
+            font-size: 13px;
+            line-height: 1.6
+        }
+
+        .cmds .row .v code {
+            background: rgba(57, 255, 20, .08);
+            color: var(--g-alt);
+            padding: 0 5px;
+            font-size: 12px
+        }
+
+        .cmds-note {
+            margin-top: 18px;
+            padding: 14px 18px;
+            border-left: 2px solid var(--p-accent);
+            background: rgba(28, 16, 40, .3);
+            font-family: var(--mono);
+            font-size: 13px;
+            color: #cfb8d4;
+            line-height: 1.7
+        }
+
+        .cmds-note b {
+            color: var(--p-accent)
+        }
+
+        /* stats strip */
+        .strip {
+            display: grid;
+            grid-template-columns:repeat(4, 1fr);
+            gap: 0;
+            border: 1px solid var(--g-line);
+            background: rgba(10, 20, 16, .5);
+            margin-top: 36px
+        }
+
+        .strip .cell {
+            padding: 18px 20px;
+            border-right: 1px solid var(--g-line);
+            position: relative
+        }
+
+        .strip .cell:last-child {
+            border-right: 0
+        }
+
+        .strip .num {
+            font-family: var(--display);
+            font-size: 38px;
+            letter-spacing: 1px;
+            color: var(--g-accent);
+            text-shadow: 0 0 8px var(--g-glow);
+            line-height: 1
+        }
+
+        .strip .num.pink {
+            color: var(--p-accent);
+            text-shadow: 0 0 8px var(--p-glow)
+        }
+
+        .strip .l {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-top: 6px
+        }
+
+        /* footer */
+        footer {
+            margin-top: 80px;
+            padding-top: 24px;
+            border-top: 1px solid var(--g-line);
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+            text-transform: uppercase
+        }
+
+        footer .h {
+            color: var(--g-accent);
+            text-shadow: 0 0 6px var(--g-glow)
+        }
+
+        footer a {
+            color: var(--muted);
+            transition: color .15s
+        }
+
+        footer a:hover {
+            color: var(--g-accent)
+        }
+
+        .term-divider {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 28px 0
+        }
+
+        .term-divider::before, .term-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--g-line)
+        }
+
+        .term-divider .accent {
+            color: var(--g-accent);
+            text-shadow: 0 0 6px var(--g-glow)
+        }
+
+        @media (max-width: 880px) {
+            .hero {
+                grid-template-columns:1fr;
+                padding: 24px 0 36px
+            }
+
+            .hero-art {
+                height: 340px
+            }
+
+            .cards {
+                grid-template-columns:1fr
+            }
+
+            .demo-grid {
+                grid-template-columns:1fr
+            }
+
+            .s-title {
+                font-size: 42px
+            }
+
+            .strip {
+                grid-template-columns:1fr 1fr
+            }
+
+            .strip .cell:nth-child(2) {
+                border-right: 0
+            }
+
+            .strip .cell:nth-child(1), .strip .cell:nth-child(2) {
+                border-bottom: 1px solid var(--g-line)
+            }
+
+            .cmds .row {
+                grid-template-columns:1fr;
+                gap: 4px
+            }
+
+            nav.top .links {
+                font-size: 10px;
+                gap: 14px
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="flicker"></div>
+
+<div class="shell">
+
+    <!-- nav -->
+    <nav class="top">
+        <div class="logo">
+            <span class="mk">▮ TECH<span
+                    style="color:var(--p-accent);text-shadow:0 0 10px var(--p-glow)">PULSE</span></span>
+        </div>
+        <div class="links">
+            <a href="#what">What</a>
+            <a href="#demo">Demo</a>
+            <a href="#cmd">Commands</a>
+            <a href="https://github.com/vmedvedevpro/tech-pulse" target="_blank" rel="noopener">GitHub ↗</a>
+            <a href="https://t.me/aitechpulsebot" target="_blank" rel="noopener" class="cta">▶ Open in Telegram</a>
+        </div>
+    </nav>
+
+    <!-- boot line -->
+    <div class="boot">
+        <span class="ok">[OK]</span> ./techpulse --boot
+        <span style="opacity:.5">·</span>
+        <span>YouTube + GitHub + interests</span>
+        <span style="opacity:.5">·</span>
+        <span>powered by <span class="warn">Claude</span></span>
+        <span style="opacity:.5">·</span>
+        <span>weekly digest <span class="ok">scheduled</span></span>
+        <span class="cur"></span>
+    </div>
+
+    <!-- hero -->
+    <section class="hero">
+        <div>
+            <div class="badges">
+                <span class="badge green">Telegram bot</span>
+                <span class="badge pink">Powered by Claude</span>
+                <span class="badge green">Open source</span>
+            </div>
+            <h1>Pulse for<br/>your <span class="pink">tech feed</span></h1>
+            <div class="tag">YouTube · GitHub · Interests → Weekly digest</div>
+            <p class="lead">
+                Tech Pulse is a personal tech radar inside Telegram. It watches the YouTube channels,
+                GitHub repos, and topics you care about — and delivers a clean weekly digest.
+                Only what's new, only what's relevant.
+            </p>
+            <div class="cta">
+                <a href="https://t.me/aitechpulsebot" target="_blank" rel="noopener" class="btn green">▶ Open in
+                    Telegram</a>
+                <a href="https://github.com/vmedvedevpro/tech-pulse" target="_blank" rel="noopener" class="btn ghost">View
+                    on GitHub</a>
+            </div>
+        </div>
+
+        <div class="hero-art">
+            <div class="crt">
+                <div class="corner tl">CH.01 ▮▮ HEART</div>
+                <div class="corner tr">REC ●</div>
+                <div class="corner bl">PULSE 72bpm</div>
+                <div class="corner br">v2.PX</div>
+                <canvas id="hero-heart" width="100" height="100"></canvas>
+                <div class="ecg-strip">
+                    <canvas id="hero-ecg" width="300" height="48"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="term-divider">
+        <span class="accent">$</span> ./show --section what-it-does
+    </div>
+
+    <!-- WHAT -->
+    <section class="s" id="what">
+        <div class="s-head">
+            <div>
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+                    <span class="s-tag green">01 / What it does</span>
+                </div>
+                <h2 class="s-title">Three <span class="accent">things</span></h2>
+            </div>
+            <div class="s-sub">No noise, no scroll-feeds. Talk to it in plain English — Russian works too.</div>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <div class="icon-slot">
+                    <canvas data-icon="eye" data-theme="green" width="80" height="80"></canvas>
+                </div>
+                <div class="num">// 01 — WATCH</div>
+                <h3>Watch</h3>
+                <p>Just say <code>add @nickchapsas</code> or <code>track astral-sh/uv</code>. The bot watches YouTube
+                    channels, GitHub repos, and your interest topics.</p>
+                <div class="meta">▮ YouTube · GitHub · Topics</div>
+            </div>
+            <div class="card">
+                <div class="icon-slot">
+                    <canvas data-icon="bell" data-theme="green" width="80" height="80"></canvas>
+                </div>
+                <div class="num">// 02 — DIGEST</div>
+                <h3>Digest</h3>
+                <p>Weekly digest with new videos &amp; releases, summarised and scored by relevance to your interests.
+                    Or pull one on demand any time.</p>
+                <div class="meta">▮ Auto · weekly · on demand</div>
+            </div>
+            <div class="card">
+                <div class="icon-slot">
+                    <canvas data-icon="bolt" data-theme="green" width="80" height="80"></canvas>
+                </div>
+                <div class="num">// 03 — ASK</div>
+                <h3>Ask</h3>
+                <p>Drop a YouTube link or GitHub repo &mdash; get a TL;DR with stars, language, latest release,
+                    transcript summary.</p>
+                <div class="meta">▮ Drop · ask · TL;DR</div>
+            </div>
+        </div>
+
+        <div class="strip">
+            <div class="cell">
+                <div class="num">PLAIN</div>
+                <div class="l">English / Russian</div>
+            </div>
+            <div class="cell">
+                <div class="num pink">7d</div>
+                <div class="l">Auto digest cycle</div>
+            </div>
+            <div class="cell">
+                <div class="num">0—10</div>
+                <div class="l">Relevance score</div>
+            </div>
+            <div class="cell">
+                <div class="num pink">∞</div>
+                <div class="l">Repos / channels</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="term-divider">
+        <span class="accent">$</span> ./show --section live-demo
+    </div>
+
+    <!-- DEMO -->
+    <section class="s" id="demo">
+        <div class="s-head">
+            <div>
+                <span class="s-tag pink">02 / Live demo</span>
+                <h2 class="s-title pink" style="margin-top:12px">In your <span class="accent">pocket</span></h2>
+            </div>
+            <div class="s-sub">No new app to install. No new tab to keep open. Just Telegram.</div>
+        </div>
+
+        <div class="demo-grid">
+            <div class="phone">
+                <div class="phone-bar">
+                    <div class="av">
+                        <canvas id="phone-av" width="36" height="36"></canvas>
+                    </div>
+                    <div style="flex:1">
+                        <div class="name">Tech Pulse</div>
+                        <div class="status"><span class="dot">●</span> online</div>
+                    </div>
+                </div>
+                <div class="chat">
+                    <div class="chat-bg">
+                        <canvas id="chat-bg" width="380" height="520"></canvas>
+                    </div>
+                    <div class="divtoday">◆ TODAY ◆</div>
+
+                    <div class="bubble out">track astral-sh/uv</div>
+                    <div class="bubble in">
+                        <div class="head">[OK] REPO_TRACKED</div>
+                        Watching <code>astral-sh/uv</code> for releases.
+                    </div>
+
+                    <div class="bubble out">/check</div>
+                    <div class="bubble in">
+                        <div class="head">▮▮▮ DIGEST ▮▮▮</div>
+                        <b style="color:var(--p-accent)">uv 0.5.0</b> — Workspaces &amp; lockfile v2
+                        <div style="opacity:.85;font-style:italic;margin-top:2px;font-size:13px">Workspace support, new
+                            lockfile, faster resolver. Migration is automatic.
+                        </div>
+                        <div class="meta">▶ keep: 1 release · 0 videos</div>
+                    </div>
+
+                    <div class="bubble alert">
+                        <div class="head">▶ NEW RELEASE</div>
+                        <b>microsoft/vscode 1.92</b> — relevance 6/10
+                    </div>
+                </div>
+            </div>
+
+            <div class="demo-side">
+                <h4>Talk to it</h4>
+                <ul>
+                    <li><span><b>Add @nickchapsas</b> — start watching a YouTube channel.</span></li>
+                    <li><span><b>Track astral-sh/uv</b> — start watching a GitHub repo.</span></li>
+                    <li><span><b>Add interest:</b> <code>distributed systems</code> — bias the digest.</span></li>
+                    <li><span><b>Enable weekly digest</b> — opt in to the auto cron.</span></li>
+                    <li><span><b>Drop a link</b> — get a TL;DR with relevance score.</span></li>
+                </ul>
+                <div class="quote">
+                    <b>// brand voice</b>
+                    The bot writes like an engineer who doesn't have time. No emoji-soup, no hype.
+                    Just: what's new, what changed, why it matters, how relevant. Done.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="term-divider">
+        <span class="accent">$</span> ./show --section commands
+    </div>
+
+    <!-- COMMANDS -->
+    <section class="s" id="cmd">
+        <div class="s-head">
+            <div>
+                <span class="s-tag green">03 / Commands</span>
+                <h2 class="s-title">Cheat <span class="accent">sheet</span></h2>
+            </div>
+            <div class="s-sub">Two slash-commands. Everything else is plain natural language.</div>
+        </div>
+
+        <div class="cmds">
+            <div class="row">
+                <div class="k">/start</div>
+                <div class="v">Initialise the bot, set things up, see a quick intro of what it can do.</div>
+            </div>
+            <div class="row">
+                <div class="k">/help</div>
+                <div class="v">Show how to talk to the bot — examples for channels, repos, interests, digests.</div>
+            </div>
+        </div>
+
+        <div class="cmds-note">
+            <b>// the rest is conversational.</b> Add channels, track repos, set interests, run a digest, subscribe to
+            the weekly cycle &mdash; all in plain text. The agent figures out intent and calls the right tool. Powered
+            by Claude with full conversation history per user.
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="s" id="start">
+        <div style="text-align:center;padding:40px 0">
+            <div style="font-family:var(--display);font-size:72px;letter-spacing:3px;color:var(--g-accent);text-shadow:0 0 22px var(--g-glow);margin-bottom:14px;line-height:.95">
+                ▶ START_BOT
+            </div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:32px">
+                Tap to open · @aitechpulsebot
+            </div>
+            <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+                <a href="https://t.me/aitechpulsebot" target="_blank" rel="noopener" class="btn green"
+                   style="font-size:13px;padding:18px 32px">
+                    Open in Telegram →
+                </a>
+                <a href="https://github.com/vmedvedevpro/tech-pulse" target="_blank" rel="noopener" class="btn pink"
+                   style="font-size:13px;padding:18px 32px">
+                    Source on GitHub →
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div>© Tech Pulse · <span class="h">v2.PX</span></div>
+        <div>
+            <a href="https://github.com/vmedvedevpro/tech-pulse" target="_blank" rel="noopener">github.com/vmedvedevpro/tech-pulse</a>
+        </div>
+        <div>
+            <a href="https://t.me/aitechpulsebot" target="_blank" rel="noopener">@aitechpulsebot</a>
+        </div>
+    </footer>
+</div>
+
+<script>
+    /* pixel emoji engine — same approach as user's emoji pack */
+    const G = {
+        id: 'green',
+        accent: '#39ff14',
+        alt: '#a3ff7a',
+        glow: 'rgba(57,255,20,.9)',
+        glowSoft: 'rgba(163,255,122,.6)'
+    };
+
+    const HEART_19 = [
+        '...................', '...................', '...................', '...................',
+        '....###.....###....', '...#####...#####...', '..#######.#######..', '..###*###########..',
+        '..####*##########..', '..###############..', '...#############...', '....###########....',
+        '.....#########.....', '......#######......', '.......#####.......', '........###........',
+        '.........#.........', '...................', '...................'
+    ];
+
+    const BM = {
+        eye: [
+            '..........', '...####...', '..######..', '.########.', '.###**###.',
+            '.###**###.', '.########.', '..######..', '...####...', '..........'
+        ],
+        bell: [
+            '..........', '....##....', '...####...', '..######..', '..######..',
+            '.########.', '##########', '....##....', '....##....', '..........'
+        ],
+        bolt: [
+            '..........', '......##..', '.....##...', '....##....', '...######.',
+            '.######...', '...##.....', '..##......', '.##.......', '..........'
+        ]
+    };
+
+    function drawBitmap(ctx, bitmap, theme) {
+        const rows = bitmap.length, cols = bitmap[0].length;
+        const W = ctx.canvas.width, H = ctx.canvas.height;
+        const cw = Math.floor(W / cols), ch = Math.floor(H / rows);
+        const ox = Math.floor((W - cw * cols) / 2), oy = Math.floor((H - ch * rows) / 2);
+        ctx.clearRect(0, 0, W, H);
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                const c = bitmap[y][x];
+                if (c === '.') continue;
+                ctx.shadowColor = c === '*' ? theme.glowSoft : theme.glow;
+                ctx.shadowBlur = 6;
+                ctx.fillStyle = c === '*' ? theme.alt : theme.accent;
+                ctx.fillRect(ox + x * cw, oy + y * ch, cw, ch);
+            }
+        }
+        ctx.shadowBlur = 0;
+    }
+
+    const ECG = [0, 0, 0, 1, 0, -1, 7, -5, 1, 0, 0, 0, 0, 0, 0, 0];
+
+    function drawECG(ctx, theme, offset, opts = {}) {
+        const W = ctx.canvas.width, H = ctx.canvas.height;
+        ctx.clearRect(0, 0, W, H);
+        const px = opts.px ?? 4, baseline = opts.baseline ?? Math.round(H / 2);
+        const len = ECG.length, cycleW = len * px;
+        for (let sx = 0; sx < W; sx += px) {
+            const wx = ((sx + offset) % cycleW + cycleW) % cycleW;
+            const idx = Math.floor(wx / px) % len;
+            const h = ECG[idx];
+            const steps = Math.max(1, Math.abs(h) + 1);
+            const spike = Math.abs(h) >= 3;
+            for (let s = 0; s < steps; s++) {
+                const dy = h >= 0 ? -s : s;
+                const yp = baseline + dy * px;
+                if (yp < 0 || yp + px > H) continue;
+                ctx.globalAlpha = h === 0 ? .30 : 1;
+                ctx.fillStyle = spike ? theme.accent : theme.alt;
+                ctx.shadowColor = theme.glow;
+                ctx.shadowBlur = spike ? 10 : 3;
+                ctx.fillRect(sx, yp, px, px);
+            }
+        }
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+    }
+
+    function drawPulseHeart(ctx, theme, t) {
+        const W = ctx.canvas.width, H = ctx.canvas.height;
+        ctx.clearRect(0, 0, W, H);
+        const phase = t % 24;
+        let scale = 1;
+        if (phase < 3) scale = 1.13;
+        else if (phase < 6) scale = 1.05;
+        else if (phase === 8 || phase === 9) scale = 1.07;
+        ctx.save();
+        const cx = W / 2, cy = H / 2;
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -cy);
+        drawBitmap(ctx, HEART_19, theme);
+        ctx.restore();
+    }
+
+    /* mount card icons */
+    document.querySelectorAll('canvas[data-icon]').forEach(cv => {
+        const ctx = cv.getContext('2d');
+        drawBitmap(ctx, BM[cv.dataset.icon], G);
+    });
+
+    /* hero showpiece */
+    const heroHeartCv = document.getElementById('hero-heart');
+    const heroEcgCv = document.getElementById('hero-ecg');
+    const heroHeartCtx = heroHeartCv.getContext('2d');
+    const heroEcgCtx = heroEcgCv.getContext('2d');
+
+    const phoneAvCtx = document.getElementById('phone-av').getContext('2d');
+    drawBitmap(phoneAvCtx, HEART_19, G);
+
+    const chatBgCv = document.getElementById('chat-bg');
+    const chatBgCtx = chatBgCv.getContext('2d');
+
+    let tick = 0;
+    (function loop() {
+        tick++;
+        drawPulseHeart(heroHeartCtx, G, tick);
+        drawECG(heroEcgCtx, G, tick * 2, {px: 3, baseline: 24});
+
+        if (tick % 2 === 0) {
+            chatBgCtx.clearRect(0, 0, chatBgCv.width, chatBgCv.height);
+            const px = 5;
+            for (let row = 0; row < 8; row++) {
+                const base = (row + 0.5) * (chatBgCv.height / 8);
+                const off = (tick * (row % 2 ? 1.4 : 1.1)) % (ECG.length * px);
+                drawECG(chatBgCtx, G, off, {px, baseline: Math.round(base)});
+            }
+        }
+        requestAnimationFrame(loop);
+    })();
+</script>
+</body>
+</html>

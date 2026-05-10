@@ -3,7 +3,7 @@
 ![License](https://img.shields.io/github/license/vmedvedevpro/tech-pulse)
 ![Last commit](https://img.shields.io/github/last-commit/vmedvedevpro/tech-pulse)
 ![Claude](https://img.shields.io/badge/powered%20by-Claude-orange?logo=anthropic)
-![Telegram](https://img.shields.io/badge/Telegram-bot-26A5E4?logo=telegram)
+[![Telegram](https://img.shields.io/badge/Telegram-bot-26A5E4?logo=telegram)](https://t.me/aitechpulsebot)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-store-4169E1?logo=postgresql)
 ![CI](https://github.com/vmedvedevpro/tech-pulse/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/vmedvedevpro/tech-pulse/branch/main/graph/badge.svg)](https://codecov.io/gh/vmedvedevpro/tech-pulse)
@@ -146,6 +146,8 @@ techpulse
 ```
 
 ## Usage
+
+Try it: [@aitechpulsebot](https://t.me/aitechpulsebot)
 
 Chat with the bot in Telegram using natural language:
 

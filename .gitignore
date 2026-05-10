@@ -211,9 +211,6 @@ __marimo__/
 # JetBrains
 .idea
 
-docs
-
-
 # Claude Code
 .claude
 /.output.txt
