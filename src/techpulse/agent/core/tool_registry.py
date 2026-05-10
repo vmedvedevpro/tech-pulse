@@ -1,6 +1,8 @@
 from typing import Any
 
-from techpulse.agent.tools.base import ToolResult, Tool
+from anthropic.types import ToolParam
+
+from techpulse.agent.tools.base import Tool, ToolResult
 
 
 class ToolRegistry:
@@ -15,13 +17,8 @@ class ToolRegistry:
             return ToolResult(content=f"Unknown tool: {tool_name}", is_error=True)
         return await self._tools[tool_name].run(tool_input)
 
-    def get_schemas(self) -> list[dict[str, Any]]:
+    def get_schemas(self) -> list[ToolParam]:
         return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.input_schema,
-                "strict": True,
-            }
+            ToolParam(name=tool.name, description=tool.description, input_schema=tool.input_schema, strict=True)
             for tool in self._tools.values()
         ]

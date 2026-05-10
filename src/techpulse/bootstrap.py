@@ -11,6 +11,7 @@ from telegram import Bot, BotCommand
 from telegram.ext import Application, BaseHandler
 
 from techpulse.agent.core.agent import Agent
+from techpulse.agent.core.memory import SlidingWindowStrategy
 from techpulse.agent.core.tool_registry import ToolRegistry
 from techpulse.agent.system_prompt import SYSTEM_PROMPT
 from techpulse.agent.tools.channel_tools import AddChannelTool, ListChannelsTool, RemoveChannelTool
@@ -142,6 +143,7 @@ def create_agent(user_id: int, repos: Repositories, settings: Settings, cookie_f
         model=settings.anthropic_model,
         system=SYSTEM_PROMPT,
         user_context_loader=_make_user_context_loader(user_id, repos),
+        memory_strategy=SlidingWindowStrategy(settings.agent_max_turns),
     )
 
 
