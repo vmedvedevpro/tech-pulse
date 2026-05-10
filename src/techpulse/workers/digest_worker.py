@@ -13,6 +13,7 @@ from techpulse.persistence.repositories.protocols import (
     SeenItemsRepositoryProtocol,
     VideoRepositoryProtocol,
 )
+from techpulse.workers.video_summarizer import VideoSummarizer
 
 
 @dataclass
@@ -23,6 +24,7 @@ class VideoDigestItem:
     published_at: datetime
     transcript: str | None
     transcript_language: str | None
+    summary: str | None
 
 
 class DigestWorker:
@@ -33,6 +35,7 @@ class DigestWorker:
             channel_repo: ChannelRepositoryProtocol,
             seen_video_repo: SeenItemsRepositoryProtocol,
             video_repo: VideoRepositoryProtocol,
+            summarizer: VideoSummarizer,
             user_id: int,
     ) -> None:
         self._yt_data = yt_data
@@ -40,6 +43,7 @@ class DigestWorker:
         self._channel_repo = channel_repo
         self._seen_video_repo = seen_video_repo
         self._video_repo = video_repo
+        self._summarizer = summarizer
         self._user_id = user_id
 
     async def collect(self, max_per_channel: int = 5) -> list[VideoDigestItem]:
@@ -83,6 +87,7 @@ class DigestWorker:
                 published_at=video.published_at,
             )
             transcript_text, lang = await self._get_or_fetch_transcript(video.video_id)
+            summary = await self._get_or_create_summary(video.video_id, transcript_text, lang)
             items.append(VideoDigestItem(
                 video_id=video.video_id,
                 title=video.title,
@@ -90,6 +95,7 @@ class DigestWorker:
                 published_at=video.published_at,
                 transcript=transcript_text,
                 transcript_language=lang,
+                summary=summary,
             ))
 
         await self._seen_video_repo.mark_many_seen(self._user_id, [v.video_id for v in new_videos])
@@ -105,6 +111,16 @@ class DigestWorker:
         if text is not None and lang is not None:
             await self._video_repo.set_transcript(video_id, text, lang)
         return text, lang
+
+    async def _get_or_create_summary(
+            self,
+            video_id: str,
+            transcript: str | None,
+            language: str | None,
+    ) -> str | None:
+        if transcript is None or language is None:
+            return None
+        return await self._summarizer.get_or_create(video_id, transcript, language)
 
     async def _fetch_best_transcript(self, video_id: str) -> tuple[str | None, str | None]:
         try:

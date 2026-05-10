@@ -8,6 +8,7 @@ from techpulse.agent.tools.base import Tool, ToolResult
 from techpulse.integrations.youtube.exceptions import TranscriptError
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 from techpulse.persistence.repositories.protocols import VideoRepositoryProtocol
+from techpulse.workers.video_summarizer import VideoSummarizer
 
 _VIDEO_ID_PARAM = {
     "type": "string",
@@ -109,10 +110,11 @@ class ListTranscriptsTool(Tool):
 class YoutubeTranscriptTool(Tool):
     name = "fetch_transcript"
     description = (
-        "Fetches the full transcript of a YouTube video in the specified language. "
+        "Fetches the full transcript of a YouTube video in the specified language, "
+        "and returns a pre-generated 2-3 sentence summary for it. "
         "Always call list_transcripts first to get available languages, "
         "then choose a language_code — prefer manual transcripts (is_generated=false) over auto-generated ones. "
-        "Returns transcript text, language code, and duration in seconds."
+        "Returns transcript text, language code, duration in seconds, and a cached summary."
     )
     input_schema = {
         "type": "object",
@@ -134,9 +136,11 @@ class YoutubeTranscriptTool(Tool):
             self,
             client: YouTubeTranscriptClient,
             video_repo: VideoRepositoryProtocol,
+            summarizer: VideoSummarizer,
     ) -> None:
         self._client = client
         self._video_repo = video_repo
+        self._summarizer = summarizer
 
     async def run(self, tool_input: dict[str, Any]) -> ToolResult:
         video_id: str = tool_input["video_id"]
@@ -147,11 +151,13 @@ class YoutubeTranscriptTool(Tool):
         if cached is not None and cached[1] == language_code:
             text, lang = cached
             log.debug("transcript cache hit | text_len={}", len(text))
+            summary = await self._summarizer.get_or_create(video_id, text, lang)
             payload = {
                 "video_id": video_id,
                 "language_code": lang,
                 "duration_seconds": None,
                 "text": text,
+                "summary": summary,
             }
             return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
@@ -172,10 +178,14 @@ class YoutubeTranscriptTool(Tool):
             transcript=transcript.text,
             language=transcript.language_code,
         )
+        summary = await self._summarizer.get_or_create(
+            transcript.video_id, transcript.text, transcript.language_code,
+        )
         payload = {
             "video_id": transcript.video_id,
             "language_code": transcript.language_code,
             "duration_seconds": round(transcript.duration),
             "text": transcript.text,
+            "summary": summary,
         }
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))

@@ -47,8 +47,8 @@ _LANG_NAMES: Final[dict[str, str]] = {
 
 
 class Localizer:
-    def __init__(self, api_key: str, model: str) -> None:
-        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+    def __init__(self, client: anthropic.AsyncAnthropic, model: str) -> None:
+        self._client = client
         self._model = model
         self._cache: dict[tuple[str, str], str] = {}
 

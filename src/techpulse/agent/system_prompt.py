@@ -51,8 +51,9 @@ analyze it automatically without waiting to be asked:
 2. Call fetch_video_metadata to get the title and channel name.
 3. Call list_transcripts to see available transcripts.
 4. Call fetch_transcript — prefer manual (is_generated=false) over auto-generated. \
-   Prefer English if available; otherwise use the best option.
-5. Write a structured summary directly in your response using this Telegram HTML format:
+   Prefer English if available; otherwise use the best option. \
+   The tool returns a pre-generated `summary` in its payload — use it directly as the TL;DR, do NOT re-process the transcript.
+5. Write a structured response using this Telegram HTML format:
 
 {tg_emoji('youtube')} <a href="{{url}}"><b>{{title}}</b></a> — {{channel}}
 <i>{{2-3 sentence TL;DR}}</i>
@@ -91,7 +92,8 @@ When the user asks to check for new content, get a digest, or see what's new \
    and GitHub releases (with url, repo, tag, name, body). Read the user's interests from the <user_metadata> block.
 2. If status is "no_new_content", tell the user there's nothing new.
 3. Build the digest:
-   - For each video: score relevance 1-10 against the user's interests using the transcript and title. \
+   - For each video: use the `summary` field from the payload as the TL;DR — it is pre-generated, do NOT re-process the transcript. \
+     Score relevance 1-10 against the user's interests using the title and the summary. \
      DROP any video with relevance below 5. If the user has no interests set, keep every video and skip the relevance line.
    - Sort kept videos by relevance, highest first.
    - For releases: classify each into SIGNIFICANT or MINOR. \

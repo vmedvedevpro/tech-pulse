@@ -53,6 +53,7 @@ class CheckDigestTool(Tool):
                     "published_at": item.published_at.isoformat(),
                     "transcript": item.transcript,
                     "transcript_language": item.transcript_language,
+                    "summary": item.summary,
                 }
                 for item in videos
             ],
