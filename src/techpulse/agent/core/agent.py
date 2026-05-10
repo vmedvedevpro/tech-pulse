@@ -2,9 +2,11 @@ import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 import anthropic
+from anthropic.types import CacheControlEphemeralParam, MessageParam, TextBlockParam, ToolResultBlockParam
 from loguru import logger
 
 from techpulse.agent.core.events import AgentEvent, TextDelta
+from techpulse.agent.core.memory import MemoryStrategy
 from techpulse.agent.core.tool_registry import ToolRegistry
 
 _MAX_RETRIES = 4
@@ -17,21 +19,23 @@ class Agent:
             registry: ToolRegistry,
             api_key: str,
             model: str,
-            system: str | None = None,
-            user_context_loader: Callable[[], Awaitable[str]] | None = None,
+            system: str,
+            user_context_loader: Callable[[], Awaitable[str]],
+            memory_strategy: MemoryStrategy,
     ):
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._model = model
         self._registry = registry
-        self._messages: list[dict] = []
+        self._messages: list[MessageParam] = []
         self._system = system
         self._user_context_loader = user_context_loader
+        self._memory_strategy = memory_strategy
 
     async def stream_chat(self, user_message: str) -> AsyncIterator[AgentEvent]:
-        self._messages.append({"role": "user", "content": user_message})
+        self._messages.append(MessageParam(role="user", content=user_message))
 
         while True:
-            user_context = await self._user_context_loader() if self._user_context_loader else None
+            user_context = await self._user_context_loader()
             final_message: anthropic.types.Message | None = None
 
             for attempt in range(_MAX_RETRIES):
@@ -52,7 +56,7 @@ class Agent:
                     await asyncio.sleep(delay)
 
             assert final_message is not None
-            self._messages.append({"role": "assistant", "content": final_message.content})
+            self._messages.append(MessageParam(role="assistant", content=final_message.content))
 
             if final_message.stop_reason == "end_turn":
                 u = final_message.usage
@@ -63,10 +67,11 @@ class Agent:
                     u.cache_read_input_tokens,
                     u.cache_creation_input_tokens,
                 )
+                self._messages = self._memory_strategy.trim(self._messages)
                 return
 
             if final_message.stop_reason == "tool_use":
-                tool_results: list[dict] = []
+                tool_results: list[ToolResultBlockParam] = []
                 tool_blocks = [b for b in final_message.content if isinstance(b, anthropic.types.ToolUseBlock)]
 
                 for block in tool_blocks:
@@ -82,30 +87,23 @@ class Agent:
                         logger.warning("tool_result {} error | {}", block.name, result.content[:200])
                     else:
                         logger.debug("tool_result {} ok | {}", block.name, result.content[:200])
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result.content,
-                        "is_error": result.is_error,
-                    })
-                self._messages.append({"role": "user", "content": tool_results})
+                    tool_results.append(ToolResultBlockParam(
+                        type="tool_result",
+                        tool_use_id=block.id,
+                        content=result.content,
+                        is_error=result.is_error,
+                    ))
+                self._messages.append(MessageParam(role="user", content=tool_results))
 
-    def _open_stream(self, user_context: str | None = None):
-        kwargs = dict(
+    def _open_stream(self, user_context: str):
+        return self._client.messages.stream(
             model=self._model,
             max_tokens=2048,
             tools=self._registry.get_schemas(),
             messages=self._messages,
+            system=[
+                TextBlockParam(type="text", text=self._system,
+                               cache_control=CacheControlEphemeralParam(type="ephemeral")),
+                TextBlockParam(type="text", text=user_context),
+            ],
         )
-        system_blocks: list[dict] = []
-        if self._system:
-            system_blocks.append({
-                "type": "text",
-                "text": self._system,
-                "cache_control": {"type": "ephemeral"},
-            })
-        if user_context:
-            system_blocks.append({"type": "text", "text": user_context})
-        if system_blocks:
-            kwargs["system"] = system_blocks
-        return self._client.messages.stream(**kwargs)

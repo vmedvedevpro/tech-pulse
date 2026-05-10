@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     github_token: str | None = None
     agent_ttl: float = 1800.0
     agent_sweep_interval: float = 300.0
+    agent_max_turns: int = 20
 
     weekly_digest_dow: int = 0
     weekly_digest_hour: int = 9
