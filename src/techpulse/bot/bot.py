@@ -1,3 +1,4 @@
+import anthropic
 from loguru import logger
 from telegram.ext import CommandHandler, MessageHandler, filters
 
@@ -15,11 +16,12 @@ def main() -> None:
     setup_logging(settings.log_level)
     logger.info("starting bot")
 
+    anthropic_client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     repos = Repositories.from_session_factory(create_session_factory(settings.database_url))
-    agent_factory = create_agent_factory(repos, settings)
+    agent_factory = create_agent_factory(repos, settings, anthropic_client)
     registry = AgentRegistry(agent_factory)
 
-    localizer = Localizer(api_key=settings.anthropic_api_key, model=settings.localizer_model)
+    localizer = Localizer(client=anthropic_client, model=settings.localizer_model)
     chat = ChatHandler(registry)
     start = StartHandler(localizer)
     help_ = HelpHandler(localizer)

@@ -16,6 +16,7 @@ def _make_item(**overrides) -> VideoDigestItem:
         "published_at": datetime(2026, 4, 10, 12, 0, 0),
         "transcript": "Hello world",
         "transcript_language": "en",
+        "summary": None,
     }
     defaults.update(overrides)
     return VideoDigestItem(**defaults)
@@ -85,7 +86,7 @@ class TestCheckDigestTool:
 
         video = json.loads(result.content)["new_videos"][0]
         expected_keys = {"video_id", "url", "title", "channel_title", "published_at", "transcript",
-                         "transcript_language"}
+                         "transcript_language", "summary"}
         assert set(video.keys()) == expected_keys
 
     @pytest.mark.asyncio

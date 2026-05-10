@@ -17,13 +17,13 @@ class Agent:
     def __init__(
             self,
             registry: ToolRegistry,
-            api_key: str,
+            client: anthropic.AsyncAnthropic,
             model: str,
             system: str,
             user_context_loader: Callable[[], Awaitable[str]],
             memory_strategy: MemoryStrategy,
     ):
-        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+        self._client = client
         self._model = model
         self._registry = registry
         self._messages: list[MessageParam] = []

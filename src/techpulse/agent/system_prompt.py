@@ -91,7 +91,8 @@ When the user asks to check for new content, get a digest, or see what's new \
    and GitHub releases (with url, repo, tag, name, body). Read the user's interests from the <user_metadata> block.
 2. If status is "no_new_content", tell the user there's nothing new.
 3. Build the digest:
-   - For each video: score relevance 1-10 against the user's interests using the transcript and title. \
+   - For each video: use the `summary` field from the payload as the TL;DR — it is pre-generated, do NOT re-process the transcript. \
+     Score relevance 1-10 against the user's interests using the title and the summary. \
      DROP any video with relevance below 5. If the user has no interests set, keep every video and skip the relevance line.
    - Sort kept videos by relevance, highest first.
    - For releases: classify each into SIGNIFICANT or MINOR. \

@@ -6,6 +6,7 @@ import tempfile
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
+import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from telegram import Bot, BotCommand
 from telegram.ext import Application, BaseHandler
@@ -89,7 +90,13 @@ def _resolve_cookie_file(settings: Settings) -> str | None:
     return f.name
 
 
-def create_agent(user_id: int, repos: Repositories, settings: Settings, cookie_file: str | None = None) -> Agent:
+def create_agent(
+        user_id: int,
+        repos: Repositories,
+        settings: Settings,
+        anthropic_client: anthropic.AsyncAnthropic,
+        cookie_file: str | None = None,
+) -> Agent:
     registry = ToolRegistry()
 
     yt_transcript_client = YouTubeTranscriptClient(cookie_file=cookie_file)
@@ -139,7 +146,7 @@ def create_agent(user_id: int, repos: Repositories, settings: Settings, cookie_f
 
     return Agent(
         registry,
-        api_key=settings.anthropic_api_key,
+        client=anthropic_client,
         model=settings.anthropic_model,
         system=SYSTEM_PROMPT,
         user_context_loader=_make_user_context_loader(user_id, repos),
@@ -174,11 +181,15 @@ def _make_user_context_loader(
     return load
 
 
-def create_agent_factory(repos: Repositories, settings: Settings) -> Callable[[int], Agent]:
+def create_agent_factory(
+        repos: Repositories,
+        settings: Settings,
+        anthropic_client: anthropic.AsyncAnthropic,
+) -> Callable[[int], Agent]:
     cookie_file = _resolve_cookie_file(settings)
 
     def factory(user_id: int) -> Agent:
-        return create_agent(user_id, repos, settings, cookie_file=cookie_file)
+        return create_agent(user_id, repos, settings, anthropic_client, cookie_file=cookie_file)
 
     return factory
 

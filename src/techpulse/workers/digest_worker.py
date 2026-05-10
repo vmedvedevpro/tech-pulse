@@ -23,6 +23,7 @@ class VideoDigestItem:
     published_at: datetime
     transcript: str | None
     transcript_language: str | None
+    summary: str | None
 
 
 class DigestWorker:
@@ -83,6 +84,7 @@ class DigestWorker:
                 published_at=video.published_at,
             )
             transcript_text, lang = await self._get_or_fetch_transcript(video.video_id)
+            cached_summary = await self._video_repo.get_summary(video.video_id)
             items.append(VideoDigestItem(
                 video_id=video.video_id,
                 title=video.title,
@@ -90,6 +92,7 @@ class DigestWorker:
                 published_at=video.published_at,
                 transcript=transcript_text,
                 transcript_language=lang,
+                summary=cached_summary,
             ))
 
         await self._seen_video_repo.mark_many_seen(self._user_id, [v.video_id for v in new_videos])
