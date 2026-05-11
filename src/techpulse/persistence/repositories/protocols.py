@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Protocol
 
+from techpulse.domain.video import VideoSearchHit
+
 
 class DigestSubscriptionRepositoryProtocol(Protocol):
     async def subscribe(self, user_id: int) -> None: ...
@@ -71,3 +73,12 @@ class VideoRepositoryProtocol(Protocol):
     async def set_summary(self, video_id: str, summary: str) -> None: ...
 
     async def set_summary_embedding(self, video_id: str, embedding: list[float]) -> None: ...
+
+    async def search_seen_by_summary_embedding(
+            self,
+            user_id: int,
+            query_embedding: list[float],
+            *,
+            since: datetime | None,
+            limit: int,
+    ) -> list[VideoSearchHit]: ...

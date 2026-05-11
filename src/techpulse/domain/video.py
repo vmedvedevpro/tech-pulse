@@ -1,10 +1,22 @@
+from dataclasses import dataclass
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from techpulse.domain.base import Base
+
+
+@dataclass(frozen=True, slots=True)
+class VideoSearchHit:
+    video_id: str
+    title: str | None
+    channel_title: str | None
+    published_at: datetime | None
+    watched_at: datetime
+    summary: str | None
+    distance: float
 
 
 class Video(Base):
@@ -30,4 +42,7 @@ class SeenVideo(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     video_id: Mapped[str] = mapped_column(
         String, ForeignKey("videos.video_id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )

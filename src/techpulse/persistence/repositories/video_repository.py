@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from techpulse.domain.video import Video
+from techpulse.domain.video import SeenVideo, Video, VideoSearchHit
 
 
 class VideoRepository:
@@ -102,3 +102,49 @@ class VideoRepository:
                 set_={"summary_embedding": stmt.excluded.summary_embedding},
             )
             await session.execute(stmt)
+
+    async def search_seen_by_summary_embedding(
+            self,
+            user_id: int,
+            query_embedding: list[float],
+            *,
+            since: datetime | None,
+            limit: int,
+    ) -> list[VideoSearchHit]:
+        distance = Video.summary_embedding.cosine_distance(query_embedding).label("distance")
+        stmt = (
+            select(
+                Video.video_id,
+                Video.title,
+                Video.channel_title,
+                Video.published_at,
+                SeenVideo.created_at.label("watched_at"),
+                Video.summary,
+                distance,
+            )
+            .join(SeenVideo, SeenVideo.video_id == Video.video_id)
+            .where(
+                SeenVideo.user_id == user_id,
+                Video.summary_embedding.is_not(None),
+            )
+            .order_by(distance.asc())
+            .limit(limit)
+        )
+        if since is not None:
+            stmt = stmt.where(SeenVideo.created_at >= since)
+
+        async with self._factory.begin() as session:
+            rows = (await session.execute(stmt)).all()
+
+        return [
+            VideoSearchHit(
+                video_id=row.video_id,
+                title=row.title,
+                channel_title=row.channel_title,
+                published_at=row.published_at,
+                watched_at=row.watched_at,
+                summary=row.summary,
+                distance=float(row.distance),
+            )
+            for row in rows
+        ]

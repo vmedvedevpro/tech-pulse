@@ -25,6 +25,7 @@ from techpulse.agent.tools.digest_tool import CheckDigestTool
 from techpulse.agent.tools.github_tools import GetLatestReleaseTool, GetRepoInfoTool
 from techpulse.agent.tools.interests_tools import AddInterestTool, ListInterestsTool, RemoveInterestTool
 from techpulse.agent.tools.repo_tools import AddRepoTool, ListReposTool, RemoveRepoTool
+from techpulse.agent.tools.search_my_videos_tool import SearchMyVideosTool
 from techpulse.agent.tools.youtube_data_tools import GetRecentVideosTool, ResolveChannelIdTool
 from techpulse.agent.tools.youtube_transcript_tools import (
     FetchVideoMetadataTool,
@@ -150,6 +151,8 @@ def create_agent(
         user_id=user_id,
     )
     registry.register(CheckDigestTool(yt_worker, gh_worker))
+
+    registry.register(SearchMyVideosTool(repos.video, embedding_client, user_id))
 
     registry.register(SubscribeWeeklyDigestTool(repos.digest_subscription, user_id))
     registry.register(UnsubscribeWeeklyDigestTool(repos.digest_subscription, user_id))

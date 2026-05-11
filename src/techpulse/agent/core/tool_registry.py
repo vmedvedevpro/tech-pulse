@@ -19,6 +19,11 @@ class ToolRegistry:
 
     def get_schemas(self) -> list[ToolParam]:
         return [
-            ToolParam(name=tool.name, description=tool.description, input_schema=tool.input_schema, strict=True)
+            ToolParam(
+                name=tool.name,
+                description=tool.description,
+                input_schema=tool.input_schema,
+                strict=getattr(tool, "strict", True),
+            )
             for tool in self._tools.values()
         ]
