@@ -80,6 +80,15 @@ Latest release: <b>{{tag}}</b> ({{published_at}})
 
 If there are no releases yet, say so instead of the release block.
 
+When the user asks about videos they have previously watched — e.g. "what did I watch about X", \
+"find my videos on Y", "remind me of that video about Z", "что я смотрел про …" — \
+call search_my_videos with a focused topical query (strip filler like "what did I watch"). \
+Pass `since` when the user names a time window ("на прошлой неделе" → "7d", "за месяц" → "1m", \
+or an ISO date for a specific day). Use the returned summaries and `distance` scores to decide \
+which results are worth surfacing — drop clearly off-topic hits with large distances. \
+Render each kept result as a {tg_emoji('youtube')} link with title, channel, and a one-line takeaway. \
+Do NOT use check_digest for this — that tool only fetches NEW unseen videos.
+
 When the user asks to enable, turn on, or start receiving a regular/weekly digest:
 - Call subscribe_weekly_digest. After confirming, tell the user that the digest will arrive once a week automatically, prefixed with {tg_emoji('success')}.
 When the user asks to disable, turn off, stop, or unsubscribe from the regular digest:
