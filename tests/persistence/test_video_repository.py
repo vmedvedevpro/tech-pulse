@@ -97,3 +97,23 @@ class TestSummary:
 
         assert await repo.get_transcript("vid") == ("hello", "en")
         assert await repo.get_summary("vid") == "tl;dr"
+
+
+class TestSummaryEmbedding:
+    async def test_set_then_get_returns_vector(self, repo):
+        await repo.set_summary_embedding("vid", [0.1, 0.2, 0.3])
+
+        assert repo.get_summary_embedding("vid") == [0.1, 0.2, 0.3]
+
+    async def test_set_overwrites_previous(self, repo):
+        await repo.set_summary_embedding("vid", [0.1])
+        await repo.set_summary_embedding("vid", [0.9])
+
+        assert repo.get_summary_embedding("vid") == [0.9]
+
+    async def test_set_preserves_summary(self, repo):
+        await repo.set_summary("vid", "tl;dr")
+        await repo.set_summary_embedding("vid", [0.1, 0.2])
+
+        assert await repo.get_summary("vid") == "tl;dr"
+        assert repo.get_summary_embedding("vid") == [0.1, 0.2]

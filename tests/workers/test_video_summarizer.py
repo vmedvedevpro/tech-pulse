@@ -20,10 +20,13 @@ def _make_summarizer(
         cached_summary: str | None = None,
         generated_text: str = "Generated summary.",
         api_error: bool = False,
-) -> tuple[VideoSummarizer, AsyncMock, AsyncMock]:
+        embedding_error: bool = False,
+        embedding_vector: list[float] | None = None,
+) -> tuple[VideoSummarizer, AsyncMock, AsyncMock, AsyncMock]:
     video_repo = AsyncMock()
     video_repo.get_summary.return_value = cached_summary
     video_repo.set_summary = AsyncMock()
+    video_repo.set_summary_embedding = AsyncMock()
 
     client = AsyncMock()
     if api_error:
@@ -34,28 +37,39 @@ def _make_summarizer(
     else:
         client.messages.create.return_value = _fake_message(generated_text)
 
+    embedding_client = AsyncMock()
+    if embedding_error:
+        embedding_client.embed.side_effect = RuntimeError("voyage down")
+    else:
+        embedding_client.embed.return_value = embedding_vector or [0.1, 0.2, 0.3]
+
     summarizer = VideoSummarizer(
         client=client,
         model="claude-haiku-4-5-20251001",
         video_repo=video_repo,
+        embedding_client=embedding_client,
     )
-    return summarizer, video_repo, client
+    return summarizer, video_repo, client, embedding_client
 
 
 class TestGetOrCreate:
     @pytest.mark.asyncio
     async def test_returns_cached_summary_without_api_call(self):
-        summarizer, video_repo, client = _make_summarizer(cached_summary="Old cached.")
+        summarizer, video_repo, client, embedding_client = _make_summarizer(
+            cached_summary="Old cached."
+        )
 
         result = await summarizer.get_or_create("v1", "transcript", "en")
 
         assert result == "Old cached."
         client.messages.create.assert_not_called()
         video_repo.set_summary.assert_not_called()
+        embedding_client.embed.assert_not_called()
+        video_repo.set_summary_embedding.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_generates_and_persists_when_no_cache(self):
-        summarizer, video_repo, client = _make_summarizer(
+        summarizer, video_repo, client, _ = _make_summarizer(
             cached_summary=None,
             generated_text="Fresh summary.",
         )
@@ -68,7 +82,7 @@ class TestGetOrCreate:
 
     @pytest.mark.asyncio
     async def test_passes_language_into_prompt(self):
-        summarizer, _, client = _make_summarizer(cached_summary=None)
+        summarizer, _, client, _ = _make_summarizer(cached_summary=None)
 
         await summarizer.get_or_create("v1", "транскрипт", "ru")
 
@@ -79,7 +93,7 @@ class TestGetOrCreate:
 
     @pytest.mark.asyncio
     async def test_uses_configured_model(self):
-        summarizer, _, client = _make_summarizer(cached_summary=None)
+        summarizer, _, client, _ = _make_summarizer(cached_summary=None)
 
         await summarizer.get_or_create("v1", "x", "en")
 
@@ -88,25 +102,31 @@ class TestGetOrCreate:
 
     @pytest.mark.asyncio
     async def test_returns_none_and_does_not_persist_on_api_error(self):
-        summarizer, video_repo, _ = _make_summarizer(cached_summary=None, api_error=True)
+        summarizer, video_repo, _, embedding_client = _make_summarizer(
+            cached_summary=None, api_error=True
+        )
 
         result = await summarizer.get_or_create("v1", "x", "en")
 
         assert result is None
         video_repo.set_summary.assert_not_called()
+        embedding_client.embed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_returns_none_and_does_not_persist_on_empty_response(self):
-        summarizer, video_repo, _ = _make_summarizer(cached_summary=None, generated_text="   ")
+        summarizer, video_repo, _, embedding_client = _make_summarizer(
+            cached_summary=None, generated_text="   "
+        )
 
         result = await summarizer.get_or_create("v1", "x", "en")
 
         assert result is None
         video_repo.set_summary.assert_not_called()
+        embedding_client.embed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_strips_whitespace_from_generated_summary(self):
-        summarizer, video_repo, _ = _make_summarizer(
+        summarizer, video_repo, _, _ = _make_summarizer(
             cached_summary=None,
             generated_text="  Summary text.  \n",
         )
@@ -115,3 +135,37 @@ class TestGetOrCreate:
 
         assert result == "Summary text."
         video_repo.set_summary.assert_awaited_once_with("v1", "Summary text.")
+
+
+class TestEmbedding:
+    @pytest.mark.asyncio
+    async def test_embeds_and_persists_after_summary(self):
+        summarizer, video_repo, _, embedding_client = _make_summarizer(
+            cached_summary=None,
+            generated_text="Fresh summary.",
+            embedding_vector=[0.4, 0.5, 0.6],
+        )
+
+        await summarizer.get_or_create("v1", "transcript", "en")
+
+        embedding_client.embed.assert_awaited_once_with(
+            "Fresh summary.", input_type="document"
+        )
+        video_repo.set_summary_embedding.assert_awaited_once_with(
+            "v1", [0.4, 0.5, 0.6]
+        )
+
+    @pytest.mark.asyncio
+    async def test_summary_persists_even_when_embedding_fails(self):
+        summarizer, video_repo, _, embedding_client = _make_summarizer(
+            cached_summary=None,
+            generated_text="Fresh summary.",
+            embedding_error=True,
+        )
+
+        result = await summarizer.get_or_create("v1", "transcript", "en")
+
+        assert result == "Fresh summary."
+        video_repo.set_summary.assert_awaited_once_with("v1", "Fresh summary.")
+        embedding_client.embed.assert_awaited_once()
+        video_repo.set_summary_embedding.assert_not_called()

@@ -3,6 +3,7 @@ from typing import Final
 import anthropic
 from loguru import logger
 
+from techpulse.embeddings import EmbeddingClient
 from techpulse.persistence.repositories.protocols import VideoRepositoryProtocol
 from techpulse.workers.video_summarizer_prompt import SUMMARIZE_PROMPT
 
@@ -15,10 +16,12 @@ class VideoSummarizer:
             client: anthropic.AsyncAnthropic,
             model: str,
             video_repo: VideoRepositoryProtocol,
+            embedding_client: EmbeddingClient,
     ) -> None:
         self._client = client
         self._model = model
         self._video_repo = video_repo
+        self._embedding_client = embedding_client
 
     async def get_or_create(
             self,
@@ -37,7 +40,17 @@ class VideoSummarizer:
 
         await self._video_repo.set_summary(video_id, summary)
         logger.info("summary persisted | video_id={} length={}", video_id, len(summary))
+        await self._embed_summary(video_id, summary)
         return summary
+
+    async def _embed_summary(self, video_id: str, summary: str) -> None:
+        try:
+            embedding = await self._embedding_client.embed(summary, input_type="document")
+        except Exception as exc:
+            logger.warning("embedding generation failed | video_id={} | {}", video_id, exc)
+            return
+        await self._video_repo.set_summary_embedding(video_id, embedding)
+        logger.info("summary embedding persisted | video_id={}", video_id)
 
     async def _generate(self, transcript: str, language: str) -> str | None:
         prompt = SUMMARIZE_PROMPT.format(language=language, transcript=transcript)

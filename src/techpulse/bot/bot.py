@@ -8,6 +8,7 @@ from techpulse.bot.handlers.chat import ChatHandler
 from techpulse.bot.handlers.commands import HelpHandler, StartHandler
 from techpulse.bot.localizer import Localizer
 from techpulse.config import settings
+from techpulse.embeddings import VoyageEmbeddingClient
 from techpulse.logging import setup_logging
 from techpulse.persistence.database import create_session_factory
 
@@ -17,8 +18,12 @@ def main() -> None:
     logger.info("starting bot")
 
     anthropic_client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    embedding_client = VoyageEmbeddingClient(
+        api_key=settings.embedding_api_key,
+        model=settings.embedding_model,
+    )
     repos = Repositories.from_session_factory(create_session_factory(settings.database_url))
-    agent_factory = create_agent_factory(repos, settings, anthropic_client)
+    agent_factory = create_agent_factory(repos, settings, anthropic_client, embedding_client)
     registry = AgentRegistry(agent_factory)
 
     localizer = Localizer(client=anthropic_client, model=settings.localizer_model)
