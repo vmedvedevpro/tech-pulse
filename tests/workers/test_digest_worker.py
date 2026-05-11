@@ -48,9 +48,10 @@ async def _make_worker(
 
     yt_data.get_recent_videos.side_effect = fake_recent
 
-    yt_transcript.get_transcript_metadata.return_value = [
-        SubtitleTrack(language_code=transcript_lang, language="English", is_generated=False),
-    ]
+    yt_transcript.get_transcript_metadata.return_value = (
+        [SubtitleTrack(language_code=transcript_lang, language="English", is_generated=False)],
+        transcript_lang,
+    )
     yt_transcript.fetch.return_value = Transcript(
         video_id="ignored",
         text=transcript_text,

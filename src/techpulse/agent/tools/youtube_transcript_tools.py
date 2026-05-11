@@ -67,10 +67,13 @@ class FetchVideoMetadataTool(Tool):
 class ListTranscriptsTool(Tool):
     name = "list_transcripts"
     description = (
-        "Lists all available transcripts for a YouTube video. "
+        "Lists available transcripts for a YouTube video. "
         "Always call this first before fetch_transcript to discover which languages are available "
         "and whether each transcript is manual or auto-generated. "
-        "Returns transcripts sorted by preference: manual ones come before auto-generated."
+        "Returns manual subtitles plus auto-captions in the video's original language and English "
+        "(other auto-translations are filtered out as noise). "
+        "Also returns `original_language` — the language the video was actually filmed in. "
+        "Transcripts are sorted: manual first, auto-generated after."
     )
     input_schema = {
         "type": "object",
@@ -88,7 +91,9 @@ class ListTranscriptsTool(Tool):
         log.debug("fetching transcript list")
 
         try:
-            transcript_list = await asyncio.to_thread(self._client.get_transcript_metadata, video_id)
+            transcript_list, original_language = await asyncio.to_thread(
+                self._client.get_transcript_metadata, video_id
+            )
         except TranscriptError as exc:
             log.warning("transcript list error | {}", exc)
             return ToolResult(content=str(exc), is_error=True)
@@ -102,8 +107,15 @@ class ListTranscriptsTool(Tool):
             for t in transcript_list
         ]
 
-        log.debug("found {} transcript(s)", len(transcripts))
-        payload = {"video_id": video_id, "transcripts": transcripts}
+        log.debug(
+            "found {} transcript(s) | original_language={}",
+            len(transcripts), original_language,
+        )
+        payload = {
+            "video_id": video_id,
+            "original_language": original_language,
+            "transcripts": transcripts,
+        }
         return ToolResult(content=json.dumps(payload, ensure_ascii=False))
 
 

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     embedding_provider: str = "voyage"
     embedding_api_key: str
-    embedding_model: str = "voyage-3-lite"
+    embedding_model: str = "voyage-3.5-lite"
     embedding_dimension: int = 1024
 
     model_config = {"env_file": ".env"}

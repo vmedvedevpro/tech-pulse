@@ -98,7 +98,7 @@ class YouTubeTranscriptClient:
             channel=info.get('channel') or info.get('uploader', ''),
         )
 
-    def get_transcript_metadata(self, video_id: str) -> list[SubtitleTrack]:
+    def get_transcript_metadata(self, video_id: str) -> tuple[list[SubtitleTrack], str | None]:
         try:
             info = self._extract_info(video_id)
         except Exception as exc:
@@ -106,20 +106,44 @@ class YouTubeTranscriptClient:
                 f"Failed to fetch transcript metadata for {video_id!r}: {exc}"
             ) from exc
 
+        auto_captions: dict = info.get('automatic_captions', {})
+
+        # YouTube auto-captions include the original ASR plus on-the-fly translations into 100+ languages.
+        # Detect the original language: yt-dlp's `info['language']` is unreliable for many videos,
+        # but translated tracks always carry `tlang=<target>` in the subtitle URL while the original
+        # ASR does not — so we scan the URLs as a robust fallback.
+        original_language = info.get('language')
+        if not original_language:
+            for lang_code, formats in auto_captions.items():
+                if lang_code == 'live_chat':
+                    continue
+                if any('tlang=' not in (f.get('url') or '') for f in formats):
+                    original_language = lang_code
+                    break
+
         tracks: list[SubtitleTrack] = []
         for lang_code, formats in info.get('subtitles', {}).items():
+            if lang_code == 'live_chat':
+                continue
             name = formats[0].get('name', lang_code) if formats else lang_code
             tracks.append(SubtitleTrack(language_code=lang_code, language=name, is_generated=False))
 
-        for lang_code, formats in info.get('automatic_captions', {}).items():
+        allowed_bases: set[str] = {'en'}
+        if original_language:
+            allowed_bases.add(original_language.split('-')[0])
+
+        for lang_code, formats in auto_captions.items():
             if lang_code == 'live_chat':
+                continue
+            base = lang_code.split('-')[0]
+            if base not in allowed_bases:
                 continue
             name = formats[0].get('name', lang_code) if formats else lang_code
             name = name.removesuffix(' (auto-generated)').strip()
             tracks.append(SubtitleTrack(language_code=lang_code, language=name, is_generated=True))
 
         tracks.sort(key=lambda t: t.is_generated)
-        return tracks
+        return tracks, original_language
 
     def fetch(self, video_id: str, language: str = None) -> Transcript:
         lang = language or 'en'

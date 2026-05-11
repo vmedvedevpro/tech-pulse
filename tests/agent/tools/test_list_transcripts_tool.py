@@ -16,10 +16,13 @@ class TestListTranscriptsTool:
     async def test_run_returns_json_payload_when_client_succeeds(self):
         # Arrange
         client = MagicMock()
-        client.get_transcript_metadata.return_value = [
-            self._make_transcript_entry("en", "English", False),
-            self._make_transcript_entry("ru", "Russian", True),
-        ]
+        client.get_transcript_metadata.return_value = (
+            [
+                self._make_transcript_entry("en", "English", False),
+                self._make_transcript_entry("ru", "Russian", True),
+            ],
+            "ru",
+        )
         tool = ListTranscriptsTool(client)
 
         # Act
@@ -29,6 +32,7 @@ class TestListTranscriptsTool:
         assert not result.is_error
         payload = json.loads(result.content)
         assert payload["video_id"] == "abc123"
+        assert payload["original_language"] == "ru"
         assert payload["transcripts"] == [
             {"language_code": "en", "language": "English", "is_generated": False},
             {"language_code": "ru", "language": "Russian", "is_generated": True},
@@ -38,7 +42,7 @@ class TestListTranscriptsTool:
     async def test_run_returns_empty_list_when_no_transcripts_available(self):
         # Arrange
         client = MagicMock()
-        client.get_transcript_metadata.return_value = []
+        client.get_transcript_metadata.return_value = ([], None)
         tool = ListTranscriptsTool(client)
 
         # Act

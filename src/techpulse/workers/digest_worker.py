@@ -124,14 +124,27 @@ class DigestWorker:
 
     async def _fetch_best_transcript(self, video_id: str) -> tuple[str | None, str | None]:
         try:
-            transcript_list = await asyncio.to_thread(
+            transcript_list, original_language = await asyncio.to_thread(
                 self._yt_transcript.get_transcript_metadata, video_id
             )
         except TranscriptError as exc:
             logger.warning("transcript_list failed | video_id={} | {}", video_id, exc)
             return None, None
 
-        candidates = sorted(transcript_list, key=lambda t: (t.is_generated, t.language_code != "en"))
+        original_base = original_language.split('-')[0] if original_language else None
+
+        def _rank(t):
+            base = t.language_code.split('-')[0]
+            # manual first; then among auto-captions prefer original language, then English
+            if not t.is_generated:
+                return (0, 0)
+            if original_base and base == original_base:
+                return (1, 0)
+            if base == "en":
+                return (1, 1)
+            return (1, 2)
+
+        candidates = sorted(transcript_list, key=_rank)
         if not candidates:
             return None, None
 

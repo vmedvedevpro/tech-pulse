@@ -46,10 +46,10 @@ class VideoSummarizer:
     async def _embed_summary(self, video_id: str, summary: str) -> None:
         try:
             embedding = await self._embedding_client.embed(summary, input_type="document")
+            await self._video_repo.set_summary_embedding(video_id, embedding)
         except Exception as exc:
-            logger.warning("embedding generation failed | video_id={} | {}", video_id, exc)
+            logger.warning("embedding persist failed | video_id={} | {}", video_id, exc)
             return
-        await self._video_repo.set_summary_embedding(video_id, embedding)
         logger.info("summary embedding persisted | video_id={}", video_id)
 
     async def _generate(self, transcript: str, language: str) -> str | None:
