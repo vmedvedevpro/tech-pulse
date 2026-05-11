@@ -131,3 +131,11 @@ class FakeVideoRepository:
     async def set_summary(self, video_id: str, summary: str) -> None:
         v = self._videos.setdefault(video_id, {})
         v["summary"] = summary
+
+    async def set_summary_embedding(self, video_id: str, embedding: list[float]) -> None:
+        v = self._videos.setdefault(video_id, {})
+        v["summary_embedding"] = embedding
+
+    def get_summary_embedding(self, video_id: str) -> list[float] | None:
+        v = self._videos.get(video_id)
+        return v.get("summary_embedding") if v else None

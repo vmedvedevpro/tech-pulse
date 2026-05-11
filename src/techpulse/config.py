@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     yt_cookies_b64: str | None = None
     alembic_database_url: str | None = None
 
+    embedding_provider: str = "voyage"
+    embedding_api_key: str
+    embedding_model: str = "voyage-3.5-lite"
+    embedding_dimension: int = 1024
+
     model_config = {"env_file": ".env"}
 
     @field_validator("database_url", mode="before")

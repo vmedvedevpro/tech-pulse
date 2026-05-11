@@ -174,16 +174,19 @@ class TestFetchVideoMetadata:
 
 
 class TestGetTranscriptMetadata:
-    def _make_formats(self, name: str):
-        return [{"ext": "vtt", "url": "https://example.com/sub.vtt", "name": name}]
+    def _make_formats(self, name: str, tlang: str | None = None):
+        url = "https://example.com/sub.vtt"
+        if tlang is not None:
+            url = f"{url}?tlang={tlang}"
+        return [{"ext": "vtt", "url": url, "name": name}]
 
     def test_returns_manual_subtitles_as_not_generated(self):
         info = {"subtitles": {"en": self._make_formats("English")}, "automatic_captions": {}}
         client = _make_client(info=info)
 
-        result = client.get_transcript_metadata("abc123")
+        tracks, _ = client.get_transcript_metadata("abc123")
 
-        assert result == [SubtitleTrack(language_code="en", language="English", is_generated=False)]
+        assert tracks == [SubtitleTrack(language_code="en", language="English", is_generated=False)]
 
     def test_returns_auto_captions_as_generated(self):
         info = {
@@ -192,20 +195,21 @@ class TestGetTranscriptMetadata:
         }
         client = _make_client(info=info)
 
-        result = client.get_transcript_metadata("abc123")
+        tracks, _ = client.get_transcript_metadata("abc123")
 
-        assert result == [SubtitleTrack(language_code="en", language="English", is_generated=True)]
+        assert tracks == [SubtitleTrack(language_code="en", language="English", is_generated=True)]
 
     def test_strips_auto_generated_suffix_from_language_name(self):
         info = {
+            "language": "ru",
             "subtitles": {},
             "automatic_captions": {"ru": self._make_formats("Russian (auto-generated)")},
         }
         client = _make_client(info=info)
 
-        result = client.get_transcript_metadata("abc123")
+        tracks, _ = client.get_transcript_metadata("abc123")
 
-        assert result[0].language == "Russian"
+        assert tracks[0].language == "Russian"
 
     def test_excludes_live_chat_from_auto_captions(self):
         info = {
@@ -217,21 +221,84 @@ class TestGetTranscriptMetadata:
         }
         client = _make_client(info=info)
 
-        result = client.get_transcript_metadata("abc123")
+        tracks, _ = client.get_transcript_metadata("abc123")
 
-        assert all(t.language_code != "live_chat" for t in result)
+        assert all(t.language_code != "live_chat" for t in tracks)
 
     def test_sorts_manual_before_auto_generated(self):
         info = {
+            "language": "ru",
             "subtitles": {"en": self._make_formats("English")},
             "automatic_captions": {"ru": self._make_formats("Russian (auto-generated)")},
         }
         client = _make_client(info=info)
 
-        result = client.get_transcript_metadata("abc123")
+        tracks, _ = client.get_transcript_metadata("abc123")
 
-        assert result[0].is_generated is False
-        assert result[1].is_generated is True
+        assert tracks[0].is_generated is False
+        assert tracks[1].is_generated is True
+
+    def test_filters_auto_captions_to_original_language_and_english(self):
+        info = {
+            "language": "ru",
+            "subtitles": {},
+            "automatic_captions": {
+                "ru": self._make_formats("Russian"),
+                "ru-orig": self._make_formats("Russian (original)"),
+                "en": self._make_formats("English"),
+                "ab": self._make_formats("Abkhazian"),
+                "aa": self._make_formats("Afar"),
+                "es": self._make_formats("Spanish"),
+            },
+        }
+        client = _make_client(info=info)
+
+        tracks, original = client.get_transcript_metadata("abc123")
+
+        codes = {t.language_code for t in tracks}
+        assert codes == {"ru", "ru-orig", "en"}
+        assert original == "ru"
+
+    def test_returns_original_language_when_known(self):
+        info = {"language": "ru", "subtitles": {}, "automatic_captions": {}}
+        client = _make_client(info=info)
+
+        _, original = client.get_transcript_metadata("abc123")
+
+        assert original == "ru"
+
+    def test_detects_original_language_from_subtitle_url_when_info_language_missing(self):
+        info = {
+            "subtitles": {},
+            "automatic_captions": {
+                "ru": self._make_formats("Russian"),  # original (no tlang)
+                "en": self._make_formats("English", tlang="en"),
+                "ab": self._make_formats("Abkhazian", tlang="ab"),
+                "aa": self._make_formats("Afar", tlang="aa"),
+            },
+        }
+        client = _make_client(info=info)
+
+        tracks, original = client.get_transcript_metadata("abc123")
+
+        assert original == "ru"
+        assert {t.language_code for t in tracks} == {"ru", "en"}
+
+    def test_keeps_only_english_when_no_original_can_be_detected(self):
+        info = {
+            "subtitles": {},
+            "automatic_captions": {
+                "en": self._make_formats("English", tlang="en"),
+                "ru": self._make_formats("Russian", tlang="ru"),
+                "ab": self._make_formats("Abkhazian", tlang="ab"),
+            },
+        }
+        client = _make_client(info=info)
+
+        tracks, original = client.get_transcript_metadata("abc123")
+
+        assert {t.language_code for t in tracks} == {"en"}
+        assert original is None
 
     def test_raises_transcript_error_when_extract_info_fails(self):
         mock_ydl = MagicMock()

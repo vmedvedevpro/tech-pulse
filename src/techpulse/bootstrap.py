@@ -33,6 +33,7 @@ from techpulse.agent.tools.youtube_transcript_tools import (
 )
 from techpulse.bot.agent_registry import AgentRegistry
 from techpulse.config import Settings
+from techpulse.embeddings import EmbeddingClient
 from techpulse.integrations.github.github_client import GitHubClient
 from techpulse.integrations.youtube.youtube_api_client import YouTubeTranscriptClient
 from techpulse.integrations.youtube.youtube_data_client import YouTubeDataClient
@@ -96,6 +97,7 @@ def create_agent(
         repos: Repositories,
         settings: Settings,
         anthropic_client: anthropic.AsyncAnthropic,
+        embedding_client: EmbeddingClient,
         cookie_file: str | None = None,
 ) -> Agent:
     registry = ToolRegistry()
@@ -104,6 +106,7 @@ def create_agent(
         client=anthropic_client,
         model=settings.anthropic_model,
         video_repo=repos.video,
+        embedding_client=embedding_client,
     )
 
     yt_transcript_client = YouTubeTranscriptClient(cookie_file=cookie_file)
@@ -193,11 +196,19 @@ def create_agent_factory(
         repos: Repositories,
         settings: Settings,
         anthropic_client: anthropic.AsyncAnthropic,
+        embedding_client: EmbeddingClient,
 ) -> Callable[[int], Agent]:
     cookie_file = _resolve_cookie_file(settings)
 
     def factory(user_id: int) -> Agent:
-        return create_agent(user_id, repos, settings, anthropic_client, cookie_file=cookie_file)
+        return create_agent(
+            user_id,
+            repos,
+            settings,
+            anthropic_client,
+            embedding_client,
+            cookie_file=cookie_file,
+        )
 
     return factory
 

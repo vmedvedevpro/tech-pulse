@@ -93,3 +93,12 @@ class VideoRepository:
                 set_={"summary": stmt.excluded.summary},
             )
             await session.execute(stmt)
+
+    async def set_summary_embedding(self, video_id: str, embedding: list[float]) -> None:
+        async with self._factory.begin() as session:
+            stmt = insert(Video).values(video_id=video_id, summary_embedding=embedding)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["video_id"],
+                set_={"summary_embedding": stmt.excluded.summary_embedding},
+            )
+            await session.execute(stmt)
